@@ -589,31 +589,36 @@ public:
 		}
 
 		float temperatureFridge = _sensorFridge.getSensorCelsius();
-		//float temperatureFreezer = _sensorFreezer.getSensorCelsius();
+		float temperatureFreezer = _sensorFreezer.getSensorCelsius();
 
 		Serial.print("Teplota v chladnicke: ");
 		Serial.println(temperatureFridge);
 		Serial.print("Limit pre zapnutie chladnicky: ");
 		Serial.println(_fridgeLowerTemperatureLimit);
+		Serial.print("Teplota v mraznicke");
+		Serial.println(temperatureFreezer);
+		Serial.print("Limit pre zapnutie mraznicky: ");
+		Serial.println(_freezerLowerTemperatureLimit);
 		Serial.print("Ventil je prepnuty na: ");
 		Serial.println(_valve.isSwitchOnFridge() ? "Chladnicku/Mraznicku" : "Mraznicku");
 
 		//* 5°C - pre chladnicku
 		//* -18 * pre mraznicku
 		if (_fridgeLowerTemperatureLimit < temperatureFridge) {
+			_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
 			if (_compressor.isStarted()) {
 				_valve.switchValveOnFridge();
-				_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
 				Serial.print("Kompresor je nastartovany od: ");
 				Serial.println(_compressor.getStartedTime());
 			} else {
 				_compressor.startASAP();
-				_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
 				Serial.print("Kompresor bude nastartovany co najskor, po case: ");
 				Serial.println(_compressor.getStartingTime());
 			}
+		} else if (_freezerLowerTemperatureLimit < temperatureFreezer) {
 		} else {
 			_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
+			_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT;
 			if (_compressor.isStarted()) {
 				_compressor.stopASAP();
 				Serial.print("Kompresor bude stopnuty co najskor, po case: ");
