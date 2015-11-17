@@ -2,6 +2,29 @@
 
 //typedef unsigned long ulong;
 
+//#define TEST
+
+#ifdef TEST
+#define COMPRESSOR__LONGEST_RUNNING_TIME 3600000
+//#define COMPRESSOR__MINIMUM_RUNNING_TIME 300000 
+#define COMPRESSOR__DELAY_FOR_START 420 //420000  //7 * 60 * 1000
+#define COMPRESSOR__DELAY_FOR_STOP  360
+#define LIGHTS__ALARM_INTERVAL 300
+#define DOORS__ALARM_START 1000
+#define BUZZER__ALARM_OPEN_DOOR 0
+#define BUZZER__ALARM_LOW_TEMP_REFRIG 1
+#define BUZZER__ALARM_LOW_TEMP_FREEZER 2
+#define BUZZER__ALARM_OPEN_DOOR__INTERVAL 300
+#define BUZZER__ALARM_LOW_TEMP_REFRIG__INTERVAL 20
+#define BUZZER__ALARM_LOW_TEMP_FREEZER_INTERVAL 30
+#define FRIDGE__LOWER_TEMPERATURE_LIMIT 4
+#define FRIDGE__UPPER_TEMPERATURE_LIMIT 6
+#define FREEZER__LOWER_TEMPERATURE_LIMIT -20
+#define FREEZER__UPPER_TEMPERATURE_LIMIT -17
+#define FRIDGE__CHECK_TEMPERATURE_INTERVAL 500
+#define SENSORS_TABLE_SIZE 16
+#define NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE 10
+#else
 //* cas, pocas ktoreho moze nepretrzite bezat kompresor (v milisekundach)
 //* to jest 30 minut = 1800000 milisekund
 //* 30minut = 30minut * 60sekund * 1000milisekund
@@ -11,7 +34,7 @@
 //* minimalny cas behu kompresora
 //* pokial tento cas neubehne, kompresor sa nebude moct vypnut
 //#define COMPRESSOR__MINIMUM_RUNNING_TIME 7 * 60 * 1000
-#define COMPRESSOR__MINIMUM_RUNNING_TIME 300000 //5 * 60 * 1000
+//#define COMPRESSOR__MINIMUM_RUNNING_TIME 300000 //5 * 60 * 1000
 //* oneskorenie zapnutia kompresora po nepretrzitom maximalnom behu (v sekundach)
 //#define COMPRESSOR__DELAY_AFTER_LONGEST_RUNNING_TIME 10
 
@@ -38,13 +61,16 @@
 //* chlad
 #define FRIDGE__LOWER_TEMPERATURE_LIMIT 4
 #define FRIDGE__UPPER_TEMPERATURE_LIMIT 6
-#define FREEZER__LOWER_TEMPERATURE_LIMIT -20
-#define FREEZER__UPPER_TEMPERATURE_LIMIT -17
+#define FREEZER__LOWER_TEMPERATURE_LIMIT -22
+#define FREEZER__UPPER_TEMPERATURE_LIMIT -20
+#define FRIDGE__CHECK_TEMPERATURE_INTERVAL 5000
 
 #define SENSORS_TABLE_SIZE 16
 
 //* pocet poloziek z ktorych sa vyratava arith.priemer nameranych hodnot teplotnych senzorov
 #define NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE 10
+
+#endif //* ifdef TEST
 
 const byte pinCompressor = 6;
 const byte pinVentilator = 2;
@@ -54,24 +80,6 @@ const byte pinSolenoidValve = 4;
 const int pinDoorsSwitch = 5;
 const int pinSensorFridge = A5;
 const int pinSensorFreezer = A4;
-
-enum ONOFF {
-	ON,
-	OFF
-};
-//const int ON = 1;
-//const int OFF = 0;
-
-enum YESNO {
-	YES,
-	NO
-};
-//const int NO = 0;
-//const int YES = 1;
-
-float mapfloat(float x, float in_min, float in_max, float out_min, float out_max) {
-	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
 
 class CObject {
 private:
@@ -181,16 +189,13 @@ public:
 
 		//* 
 		if (_started == true && _stopASAP == true) {
-			if (_timeStarted > 0 && ((_timeStarted + COMPRESSOR__MINIMUM_RUNNING_TIME) <= currentMillis)) {
+			if (_earliestStopingTime > 0 && _earliestStopingTime <= currentMillis) {
 				_stopASAP = false;
 				Serial.println("CCompressor: stop");
 				stop(currentMillis);
 				setDelayForStart();
 			}
 		}
-
-		//Serial.print("COMPRESSOR__LONGEST_RUNNING_TIME: ");
-		//Serial.println(COMPRESSOR__LONGEST_RUNNING_TIME);
 
 		//* zabezpeci aby kompresor nebezal dlhsie ako povoleny cas, aby nedoslo k poskodeniu kompresoru
 		if (_started == true) {
@@ -276,12 +281,20 @@ public:
 
 class CArithAverage {
 private:
-	float _sensorValues[NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE] = { 9999, 9999, 9999, 9999, 9999, 9999, 9999, 9999, 9999, 9999 };
+	float _sensorValues[NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE];
 	byte _index = 0;
 public:
-	//* metoda prepisuje 10 prvkov
+	CArithAverage() {
+		for (int i = 0; i < NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE; i++) {
+			_sensorValues[i] = 9999;
+		}
+	}
+
+	//* metoda prepisuje NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE prvkov
 	void addValueForArithAverage(float newValue) {
 		_sensorValues[_index] = newValue;
+		//		Serial.print("added: ");
+		//		Serial.println(newValue);
 		if (_index == NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE - 1) {
 			_index = 0;
 		} else {
@@ -293,17 +306,26 @@ public:
 	float getArithAverage() {
 		int ii = 0;
 		float val = 0;
-		Serial.print("Pole hodnot: ");
+		float min = 9999;
+		float max = -9999;
+		Serial.print("Stat: cur: ");
+		Serial.print(_sensorValues[_index - 1]);
 		for (int i = 0; i < NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE; i++) {
 			if (((int)_sensorValues[i]) != 9999) {
 				val += _sensorValues[i];
-				Serial.print(_sensorValues[i]);
-				Serial.print(", ");
+				//Serial.print(_sensorValues[i]);
+				//Serial.print(", ");
+				min = _sensorValues[i] < min ? _sensorValues[i] : min;
+				max = _sensorValues[i] > max ? _sensorValues[i] : max;
 				ii++;
 			}
 		}
+		Serial.print(", min: ");
+		Serial.print(min);
+		Serial.print(", max: ");
+		Serial.print(max);
 		val = val / ii;
-		Serial.print("-> ");
+		Serial.print(", avr: ");
 		Serial.println(val);
 		return val;
 	}
@@ -343,7 +365,6 @@ private:
 	//* 30000 - 2
 	//* 50000 -
 
-
 	int _raw = 0;
 	int _vIn = 5;
 	float _vOut = 0;
@@ -351,6 +372,7 @@ private:
 	float _rSensor = 0;
 	float _buffer = 0;
 	CArithAverage _arithAverage;
+
 public:
 	CTempSensor(byte pin, float r1) : CObject(pin, INPUT), _r1(r1) {}
 
@@ -411,14 +433,15 @@ public:
 			_vOut = (_buffer) / 1024.0;
 			_buffer = (_vIn / _vOut) - 1;
 			_rSensor = _r1 * _buffer;
-			//Serial.print("Vout: ");
-			//Serial.println(_vOut);
-			//Serial.print("rSensor: ");
-			//Serial.println(_rSensor);
 			return _rSensor;
 		} else {
 			return -1;
 		}
+	}
+
+private:
+	float mapfloat(float x, float in_min, float in_max, float out_min, float out_max) {
+		return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 	}
 };
 
@@ -431,7 +454,7 @@ public:
 class CTempSensorFreezer : public CTempSensor {
 private:
 public:
-	CTempSensorFreezer() : CTempSensor(pinSensorFreezer, 100000) {}
+	CTempSensorFreezer() : CTempSensor(pinSensorFreezer, 80000) {}
 };
 
 class CBuzzer : CObject {
@@ -553,12 +576,15 @@ private:
 	float _fridgeLowerTemperatureLimit = 0;
 	float _freezerLowerTemperatureLimit = 0;
 
+	unsigned long _checkTemperatureInterval = FRIDGE__CHECK_TEMPERATURE_INTERVAL;
+
 public:
 	//* default constructor
 	CRefrigerator() {
 		//* protect compressor against repeated starts
-		setDelayForStart();
 		_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
+		_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
+		_compressor.setDelayForStart();
 	}
 
 	void loop() {
@@ -572,11 +598,6 @@ public:
 		_lights.loop(currentMillis);
 		_buzzer.loop(currentMillis);
 
-
-		//if (1 == 0) {
-		//	_compressor.startASAP();
-		//}
-
 		//* zistime ci su dvere otvorene dlho (pre alarm)
 		//* pokial nie, tak len zapneme osvetlenie chladnicky
 		if (_door.isAlarm()) {
@@ -588,53 +609,64 @@ public:
 			_lights.switchLights(_door.areDoorsOpen());
 		}
 
-		float temperatureFridge = _sensorFridge.getSensorCelsius();
-		float temperatureFreezer = _sensorFreezer.getSensorCelsius();
+		//* kontrolujeme teplotu a ovladame v urceny interval (kazdych 5 sekund)
+		//if (currentMillis >= _checkTemperatureInterval) 
+		{
+			_checkTemperatureInterval = currentMillis + FRIDGE__CHECK_TEMPERATURE_INTERVAL;
 
-		Serial.print("Teplota v chladnicke: ");
-		Serial.println(temperatureFridge);
-		Serial.print("Limit pre zapnutie chladnicky: ");
-		Serial.println(_fridgeLowerTemperatureLimit);
-		Serial.print("Teplota v mraznicke");
-		Serial.println(temperatureFreezer);
-		Serial.print("Limit pre zapnutie mraznicky: ");
-		Serial.println(_freezerLowerTemperatureLimit);
-		Serial.print("Ventil je prepnuty na: ");
-		Serial.println(_valve.isSwitchOnFridge() ? "Chladnicku/Mraznicku" : "Mraznicku");
+			float temperatureFridge = _sensorFridge.getSensorCelsius();
+			float temperatureFreezer = _sensorFreezer.getSensorCelsius();
 
-		//* 5°C - pre chladnicku
-		//* -18 * pre mraznicku
-		if (_fridgeLowerTemperatureLimit < temperatureFridge) {
-			_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
-			if (_compressor.isStarted()) {
-				_valve.switchValveOnFridge();
-				Serial.print("Kompresor je nastartovany od: ");
-				Serial.println(_compressor.getStartedTime());
+			Serial.print("Teplota v chladnicke: ");
+			Serial.println(temperatureFridge);
+			Serial.print("Teplota v mraznicke: ");
+			Serial.println(temperatureFreezer);
+			Serial.print("Limit pre zapnutie chladnicky: ");
+			Serial.println(_fridgeLowerTemperatureLimit);
+			Serial.print("Limit pre zapnutie mraznicky: ");
+			Serial.println(_freezerLowerTemperatureLimit);
+			Serial.print("Ventil je prepnuty na: ");
+			Serial.println(_valve.isSwitchOnFridge() ? "Chladnicku/Mraznicku" : "Mraznicku");
+
+			//* 5°C - pre chladnicku
+			//* -18 * pre mraznicku
+			if (_fridgeLowerTemperatureLimit < temperatureFridge) {
+				_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
+				if (_compressor.isStarted()) {
+					_valve.switchValveOnFridge();
+					Serial.print("Kompresor ide pre chladnicku od: ");
+					Serial.println(_compressor.getStartedTime());
+				} else {
+					_compressor.startASAP();
+					Serial.print("Kompresor bude nastartovany pre chladnicku po: ");
+					Serial.println(_compressor.getStartingTime());
+				}
+				/*} else if (_freezerLowerTemperatureLimit < temperatureFreezer) {
+				_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
+				_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
+				if (_compressor.isStarted()) {
+					_valve.switchValveOnFreezer();
+					Serial.print("Kompresor ide pre mraznicku od: ");
+					Serial.println(_compressor.getStartedTime());
+				} else {
+					_compressor.startASAP();
+					Serial.print("Kompresor bude nastartovany pre mraznicku po: ");
+					Serial.println(_compressor.getStartingTime());
+				}*/
 			} else {
-				_compressor.startASAP();
-				Serial.print("Kompresor bude nastartovany co najskor, po case: ");
-				Serial.println(_compressor.getStartingTime());
-			}
-		} else if (_freezerLowerTemperatureLimit < temperatureFreezer) {
-		} else {
-			_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
-			_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT;
-			if (_compressor.isStarted()) {
-				_compressor.stopASAP();
-				Serial.print("Kompresor bude stopnuty co najskor, po case: ");
-				Serial.println(_compressor.getStopingTime());
-			} else {
-				_valve.switchValveOnFreezer();
-				Serial.print("Kompresor je stopnuty. Najskor moze by zapnuty: ");
-				Serial.println(_compressor.getStartingTime());
+				_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
+				_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT;
+				if (_compressor.isStarted()) {
+					_compressor.stopASAP();
+					Serial.print("Kompresor bude stopnuty co najskor, po case: ");
+					Serial.println(_compressor.getStopingTime());
+				} else {
+					_valve.switchValveOnFreezer();
+					Serial.print("Kompresor je stopnuty. Najskor moze by zapnuty: ");
+					Serial.println(_compressor.getStartingTime());
+				}
 			}
 		}
-
-	}
-	//*-----------------------------------------
-
-	void setDelayForStart() {
-		_compressor.setDelayForStart();
 	}
 };
 
