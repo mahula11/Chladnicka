@@ -24,6 +24,7 @@
 #define FRIDGE__CHECK_TEMPERATURE_INTERVAL 500
 #define SENSORS_TABLE_SIZE 16
 #define NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE 10
+#define VALVE__IMPULSE_TIME 100
 #else
 //* cas, pocas ktoreho moze nepretrzite bezat kompresor (v milisekundach)
 //* to jest 30 minut = 1800000 milisekund
@@ -65,6 +66,9 @@
 #define FREEZER__UPPER_TEMPERATURE_LIMIT -20
 #define FRIDGE__CHECK_TEMPERATURE_INTERVAL 5000
 
+//* cas impulzu zopnutia pre ventil (po tento cas bude drzane napatie na prepnutie, potom sa vypne)
+#define VALVE__IMPULSE_TIME 100
+
 #define SENSORS_TABLE_SIZE 16
 
 //* pocet poloziek z ktorych sa vyratava arith.priemer nameranych hodnot teplotnych senzorov
@@ -76,7 +80,8 @@ const byte pinCompressor = 6;
 const byte pinVentilator = 2;
 const byte pinBuzzer = 7;
 const byte pinLights = 3;
-const byte pinSolenoidValve = 4;
+const byte pinSolenoidValveFridge = 4;
+const byte pinSolenoidValveFreezer = 8;
 const int pinDoorsSwitch = 5;
 const int pinSensorFridge = A5;
 const int pinSensorFreezer = A4;
@@ -84,35 +89,95 @@ const int pinSensorFreezer = A4;
 class CObject {
 private:
 	byte _pin;
+	byte _pin2 = -1;
 	byte _mode;
-	byte _value;
+	//byte _value;
+	//byte _value2;
+
+protected:
+	unsigned long _currentMillis = 0; 
+	void loop(unsigned long currentMillis) {
+		_currentMillis = currentMillis;
+	}
+
 public:
 	CObject(byte pin, byte mode) : _pin(pin), _mode(mode) {
 		pinMode(pin, mode);
 		pinOnLOW();
 	};
 
+	CObject(byte pin, byte pin2, byte mode) : _pin(pin), _pin2(pin2), _mode(mode) {
+		pinMode(pin, mode);
+		pinMode(pin2, mode);
+		pinOnLOW();
+		pin2OnLOW();
+	};
+
 	void pinWrite(bool value) {
-		_value = value;
+		//_value = value;
 		digitalWrite(_pin, value);
 	}
 
+	void pin2Write(bool value) {
+		//_value2 = value;
+		if (_pin2 != -1) {
+			digitalWrite(_pin2, value);
+		} else {
+			Serial.println("pin2Write error!");
+		}
+	}
+
 	void pinOnHIGH() {
-		_value = HIGH;
+		//_value = HIGH;
 		digitalWrite(_pin, HIGH);
 	}
 
+	void pin2OnHIGH() {
+		//_value2 = HIGH;
+		if (_pin2 != -1) {
+			digitalWrite(_pin2, HIGH);
+		} else{
+			Serial.println("pin2OnHIGH error!");
+		}		
+	}
+
 	void pinOnLOW() {
-		_value = LOW;
+		//_value = LOW;
 		digitalWrite(_pin, LOW);
+	}
+
+	void pin2OnLOW() {
+		//_value2 = LOW;
+		if (_pin2 != -1) {
+			digitalWrite(_pin2, LOW);
+		} else {
+			Serial.println("pin2OnLOW error!");
+		}		
 	}
 
 	bool getDigitalPinStatus() {
 		return digitalRead(_pin) ? true : false;
 	}
 
+	bool getDigitalPin2Status() {
+		if (_pin2 != - 1) {
+			return digitalRead(_pin2) ? true : false;
+		} else {
+			Serial.println("getDigitalPin2Status error!");
+			return false;
+		}
+	}
+
 	int getAnalogPinStatus() {
 		return analogRead(_pin);
+	}
+
+	int getAnalogPin2Status() {
+		if (_pin2 = !- 1) {
+			return analogRead(_pin2);
+		} else {
+			Serial.println("getAnalogPin2Status error!");
+		}		
 	}
 };
 
@@ -173,12 +238,13 @@ public:
 	}
 
 	void loop(unsigned long currentMillis) {
+		CObject::loop(currentMillis);
 		//* umozni zapnut kompresor hned ako sa bude dat
 		if (_startASAP == true) {
 			//* tato podmienka zisti, ci je nastaveny startovaci cas a ci uz je vhodny cas na start (ked je aktualny cas vacsi alebo rovny startovaciemu casu)
 			if (_earliestStartingTime > 0 && currentMillis >= _earliestStartingTime) {
 				Serial.println("CCompressor: start");
-				start(currentMillis);
+				start();
 				_earliestStartingTime = 0;
 				_earliestStopingTime = currentMillis + COMPRESSOR__DELAY_FOR_STOP;
 				Serial.print("CCompressor: _earliestStopingTime: ");
@@ -192,7 +258,7 @@ public:
 			if (_earliestStopingTime > 0 && _earliestStopingTime <= currentMillis) {
 				_stopASAP = false;
 				Serial.println("CCompressor: stop");
-				stop(currentMillis);
+				stop();
 				setDelayForStart();
 			}
 		}
@@ -201,7 +267,7 @@ public:
 		if (_started == true) {
 			if (_timeStarted > 0 && ((_timeStarted + COMPRESSOR__LONGEST_RUNNING_TIME) <= currentMillis)) {
 				Serial.println("CCompressor: bezi prilis dlho, vypiname ho");
-				stop(currentMillis);
+				stop();
 				setDelayForStart();
 			}
 		}
@@ -211,13 +277,13 @@ public:
 protected:
 	//* tato metoda nemoze byt volana priamo z vonku, kedze zapnutie kompresoru v nevhodny cas by mohlo nicit kompresor
 	//* zapne kompresor
-	void start(unsigned long currentMillis) {
+	void start() {
 		_started = true;
-		_timeStarted = currentMillis;
+		_timeStarted = _currentMillis;
 		pinOnHIGH();
 	}
 
-	void stop(unsigned long currentMillis) {
+	void stop() {
 		_started = false;
 		_timeStarted = 0;
 		pinOnLOW();
@@ -255,10 +321,10 @@ public:
 
 	//* nastavi priznak zapnutia alarmu
 	//* najblizsim prechodom cez loop, sa osvetlenie prepne
-	void setAlarm(unsigned long currentMillis) {
+	void setAlarm() {
 		if (_isAlarm == false) {
 			_isAlarm = true;
-			_alarmStart = currentMillis;
+			_alarmStart = _currentMillis;
 		}
 	}
 
@@ -268,6 +334,7 @@ public:
 	}
 
 	void loop(unsigned long currentMillis) {
+		CObject::loop(currentMillis);
 		if (_isAlarm == true) {
 			if (_alarmStart + LIGHTS__ALARM_INTERVAL <= currentMillis) {
 				pinWrite(!getDigitalPinStatus());
@@ -468,11 +535,11 @@ public:
 
 	//* nastavi priznak zapnutia pipaca
 	//* dalsim prechodom cez loop() sa pipac zapne/vypne
-	void setAlarm(unsigned long currentMillis, int alarmType) {
+	void setAlarm(int alarmType) {
 		//* pokial nie je alarm, tak ho nastavime aj s casom zacatia a typom alarmu
 		if (_isAlarm == false) {
 			_isAlarm = true;
-			_alarmStart = currentMillis;
+			_alarmStart = _currentMillis;
 			switch (alarmType) {
 				case BUZZER__ALARM_OPEN_DOOR:
 					_beepInterval = BUZZER__ALARM_OPEN_DOOR__INTERVAL;
@@ -493,6 +560,7 @@ public:
 	}
 
 	void loop(unsigned long currentMillis) {
+		CObject::loop(currentMillis);
 		if (_isAlarm == true) {
 			if (_alarmStart + _beepInterval <= currentMillis) {
 				pinWrite(!getDigitalPinStatus());
@@ -507,21 +575,53 @@ public:
 class CSolenoidValve : CObject {
 private:
 	bool _switchOnFridge = false;
+	unsigned long _switched = -1;
 public:
-	CSolenoidValve() : CObject(pinSolenoidValve, OUTPUT) {}
+	CSolenoidValve() : CObject(pinSolenoidValveFridge, pinSolenoidValveFreezer, OUTPUT) {
+		switchValveOnFridge();
+	}
 
 	void switchValveOnFridge() {
-		_switchOnFridge = true;
-		pinWrite(true);
+		if (_switchOnFridge == false) {
+			_switchOnFridge = true;
+			pinOnHIGH();
+			pin2OnLOW();
+			_switched = _currentMillis;
+			Serial.print("Ventil sa prepina na chladnicku ");
+			Serial.println(_switched);
+		}
 	}
 
 	void switchValveOnFreezer() {
-		_switchOnFridge = false;
-		pinWrite(false);
+		if (_switchOnFridge == true) {
+			_switchOnFridge = false;
+			pinOnLOW();
+			pin2OnHIGH();
+			_switched = _currentMillis;
+			Serial.println("Ventil sa prepina na mraznicku");
+		}
 	}
 
 	bool isSwitchOnFridge() {
+		//Serial.print("Ventil je prepnuty na ");
+		//Serial.println(_switchOnFridge ? "chladnicku/mraznicku" : "mraznicku");
 		return _switchOnFridge;
+	}
+
+	void loop(unsigned long currentMillis) {
+		CObject::loop(currentMillis);
+		Serial.print("_switched = ");
+		Serial.println(_switched);
+		Serial.print("_switched + VALVE__IMPULSE_TIME = ");
+		Serial.println(_switched + VALVE__IMPULSE_TIME);
+		if (_switched != -1 && currentMillis >= _switched + VALVE__IMPULSE_TIME) {
+			//* ked ubehne stanoveny cas treba vypnut zopnutie ventilu
+			//* ventil sa prepina polaritou (jednosmernym napatim) a staci ho prepnut len impulzom (potom treba vypnut prud do ventilu)
+			pinOnLOW();
+			pin2OnLOW();
+			_switched = -1;
+			Serial.println("Napatie na ventil odpojene");
+		}
 	}
 };
 
@@ -543,6 +643,7 @@ public:
 	}
 
 	void loop(unsigned long currentMillis) {
+		CObject::loop(currentMillis);
 		//* ked su dvere otvorene, tak pinStatus vrati false
 		if (getDigitalPinStatus() == false) {
 			if (_areDoorOpen == false) {
@@ -584,6 +685,7 @@ public:
 		//* protect compressor against repeated starts
 		_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
 		_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
+		//_valve.switchValveOnFridge();
 		_compressor.setDelayForStart();
 	}
 
@@ -597,12 +699,24 @@ public:
 		_door.loop(currentMillis);
 		_lights.loop(currentMillis);
 		_buzzer.loop(currentMillis);
+		_valve.loop(currentMillis);
+
+		if (Serial.available()) {
+			int incomingByte = Serial.read();
+			Serial.print("I received: ");
+			Serial.println(incomingByte, DEC);
+			if (incomingByte == 'c') {
+				_valve.switchValveOnFridge();
+			} else if (incomingByte == 'm') {
+				_valve.switchValveOnFreezer();
+			}
+		}
 
 		//* zistime ci su dvere otvorene dlho (pre alarm)
 		//* pokial nie, tak len zapneme osvetlenie chladnicky
 		if (_door.isAlarm()) {
-			_lights.setAlarm(currentMillis);
-			_buzzer.setAlarm(currentMillis, BUZZER__ALARM_OPEN_DOOR);
+			_lights.setAlarm();
+			_buzzer.setAlarm(BUZZER__ALARM_OPEN_DOOR);
 		} else {
 			_lights.resetAlarm();
 			_buzzer.resetAlarm();
@@ -641,7 +755,7 @@ public:
 					Serial.print("Kompresor bude nastartovany pre chladnicku po: ");
 					Serial.println(_compressor.getStartingTime());
 				}
-				/*} else if (_freezerLowerTemperatureLimit < temperatureFreezer) {
+			} else if (_freezerLowerTemperatureLimit < temperatureFreezer) {
 				_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
 				_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
 				if (_compressor.isStarted()) {
@@ -652,7 +766,7 @@ public:
 					_compressor.startASAP();
 					Serial.print("Kompresor bude nastartovany pre mraznicku po: ");
 					Serial.println(_compressor.getStartingTime());
-				}*/
+				}
 			} else {
 				_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
 				_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT;
@@ -661,7 +775,7 @@ public:
 					Serial.print("Kompresor bude stopnuty co najskor, po case: ");
 					Serial.println(_compressor.getStopingTime());
 				} else {
-					_valve.switchValveOnFreezer();
+					//_valve.switchValveOnFreezer();
 					Serial.print("Kompresor je stopnuty. Najskor moze by zapnuty: ");
 					Serial.println(_compressor.getStartingTime());
 				}
@@ -683,3 +797,8 @@ void loop() {
 	g_pRefrigerator->loop();
 	delay(5000);
 }
+
+
+
+//* TODO
+//* po presiahnuti limitov vypnut chladnicku celu a dat alarm!
