@@ -603,17 +603,11 @@ public:
 	}
 
 	bool isSwitchOnFridge() {
-		//Serial.print("Ventil je prepnuty na ");
-		//Serial.println(_switchOnFridge ? "chladnicku/mraznicku" : "mraznicku");
 		return _switchOnFridge;
 	}
 
 	void loop(unsigned long currentMillis) {
 		CObject::loop(currentMillis);
-		Serial.print("_switched = ");
-		Serial.println(_switched);
-		Serial.print("_switched + VALVE__IMPULSE_TIME = ");
-		Serial.println(_switched + VALVE__IMPULSE_TIME);
 		if (_switched != -1 && currentMillis >= _switched + VALVE__IMPULSE_TIME) {
 			//* ked ubehne stanoveny cas treba vypnut zopnutie ventilu
 			//* ventil sa prepina polaritou (jednosmernym napatim) a staci ho prepnut len impulzom (potom treba vypnut prud do ventilu)
