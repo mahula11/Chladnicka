@@ -48,7 +48,7 @@
 #define LIGHTS__ALARM_INTERVAL 300
 
 //* cas, za ktory musia byt otvorene dvere, aby sa spustil alarm
-#define DOORS__ALARM_START 1000
+#define DOORS__ALARM_START 60000
 
 //* typy alarmov pre bzuciak
 #define BUZZER__ALARM_OPEN_DOOR 0
@@ -62,17 +62,18 @@
 //* chlad
 #define FRIDGE__LOWER_TEMPERATURE_LIMIT 4
 #define FRIDGE__UPPER_TEMPERATURE_LIMIT 6
-#define FREEZER__LOWER_TEMPERATURE_LIMIT -22
-#define FREEZER__UPPER_TEMPERATURE_LIMIT -20
+#define FREEZER__LOWER_TEMPERATURE_LIMIT -21
+#define FREEZER__UPPER_TEMPERATURE_LIMIT -18
 #define FRIDGE__CHECK_TEMPERATURE_INTERVAL 5000
+#define FRIDGE__PRINT_INTERVAL 5000
 
 //* cas impulzu zopnutia pre ventil (po tento cas bude drzane napatie na prepnutie, potom sa vypne)
-#define VALVE__IMPULSE_TIME 100
+#define VALVE__IMPULSE_TIME 400
 
 #define SENSORS_TABLE_SIZE 16
 
 //* pocet poloziek z ktorych sa vyratava arith.priemer nameranych hodnot teplotnych senzorov
-#define NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE 10
+#define NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE 20
 
 #endif //* ifdef TEST
 
@@ -622,34 +623,44 @@ public:
 class CDoor : CObject {
 private:
 	unsigned long _openDoorTime = 0;
-	bool _areDoorOpen;
+	unsigned long _lastOpenTime = 0;
+	bool _isDoorOpen = false;
 	bool _isAlarm = false;
 
 public:
 	CDoor() : CObject(pinDoorsSwitch, INPUT) {}
 
-	bool areDoorsOpen() {
-		return _areDoorOpen;
+	bool isDoorOpen() {
+		return _isDoorOpen;
 	}
 
 	bool isAlarm() {
 		return _isAlarm;
 	}
 
+	unsigned long getLastOpenTime() {
+		return _lastOpenTime;
+	}
+
+	void resetLastOpenTime() {
+		_lastOpenTime = 0;
+	}
+
 	void loop(unsigned long currentMillis) {
 		CObject::loop(currentMillis);
-		//* ked su dvere otvorene, tak pinStatus vrati false
+		//* if door is open, pinStatus return false
 		if (getDigitalPinStatus() == false) {
-			if (_areDoorOpen == false) {
-				_areDoorOpen = true;
+			if (_isDoorOpen == false) {
+				_isDoorOpen = true;
 				_openDoorTime = currentMillis;
 			}
+			_lastOpenTime = currentMillis - _openDoorTime;
 		} else {
-			_areDoorOpen = false;
+			_isDoorOpen = false;
 		}
 
-		//* nastavime priznak alarmu, pokial su dvere otvorene dlhsie ako je nastaveny cas
-		if (_areDoorOpen && _openDoorTime + DOORS__ALARM_START <= currentMillis) {
+		//* set alarm flag, while door is open more than time in DOORS__ALARM_START
+		if (_isDoorOpen && _openDoorTime + DOORS__ALARM_START <= currentMillis) {
 			_isAlarm = true;
 		} else {
 			_isAlarm = false;
@@ -672,6 +683,7 @@ private:
 	float _freezerLowerTemperatureLimit = 0;
 
 	unsigned long _checkTemperatureInterval = FRIDGE__CHECK_TEMPERATURE_INTERVAL;
+	unsigned long _printInterval = FRIDGE__PRINT_INTERVAL;
 
 public:
 	//* default constructor
@@ -685,9 +697,11 @@ public:
 
 	void loop() {
 		unsigned long currentMillis = millis();
-		Serial.println("");
-		Serial.print("currentMillis: ");
-		Serial.println(currentMillis);
+		if (currentMillis >= _printInterval) {
+			Serial.println("");
+			Serial.print("currentMillis: ");
+			Serial.println(currentMillis);
+		}
 
 		_compressor.loop(currentMillis);
 		_door.loop(currentMillis);
@@ -699,27 +713,35 @@ public:
 			int incomingByte = Serial.read();
 			Serial.print("I received: ");
 			Serial.println(incomingByte, DEC);
-			if (incomingByte == 'c') {
+			if (incomingByte == 'r') {
 				_valve.switchValveOnFridge();
-			} else if (incomingByte == 'm') {
+			} else if (incomingByte == 'f') {
 				_valve.switchValveOnFreezer();
-			}
+			} //else if (incomingByte == 'z') {
+				
+			//}
 		}
 
 		//* zistime ci su dvere otvorene dlho (pre alarm)
 		//* pokial nie, tak len zapneme osvetlenie chladnicky
 		if (_door.isAlarm()) {
+			if (currentMillis >= _printInterval) {
+				Serial.println("Door is in alarm!");
+			}
 			_lights.setAlarm();
 			_buzzer.setAlarm(BUZZER__ALARM_OPEN_DOOR);
 		} else {
 			_lights.resetAlarm();
 			_buzzer.resetAlarm();
-			_lights.switchLights(_door.areDoorsOpen());
+			if (currentMillis >= _printInterval) {
+				Serial.print("Door is ");
+				Serial.println(_door.isDoorOpen() ? "opened" : "closed");
+			}
+			_lights.switchLights(_door.isDoorOpen());
 		}
 
 		//* kontrolujeme teplotu a ovladame v urceny interval (kazdych 5 sekund)
-		//if (currentMillis >= _checkTemperatureInterval) 
-		{
+		if (currentMillis >= _checkTemperatureInterval) {
 			_checkTemperatureInterval = currentMillis + FRIDGE__CHECK_TEMPERATURE_INTERVAL;
 
 			float temperatureFridge = _sensorFridge.getSensorCelsius();
@@ -775,6 +797,10 @@ public:
 				}
 			}
 		}
+		//* set timers
+		if (currentMillis >= _printInterval) {
+			_printInterval = currentMillis + FRIDGE__PRINT_INTERVAL;
+		}
 	}
 };
 
@@ -789,7 +815,7 @@ void setup() {
 //* -----------------------------------------------------------
 void loop() {
 	g_pRefrigerator->loop();
-	delay(5000);
+	delay(50);
 }
 
 
