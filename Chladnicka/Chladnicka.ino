@@ -1,3 +1,4 @@
+#include <avr/wdt.h>
 //#include "types.h"
 
 //typedef unsigned long ulong;
@@ -18,7 +19,7 @@
 #define BUZZER__ALARM_LOW_TEMP_REFRIG__INTERVAL 20
 #define BUZZER__ALARM_LOW_TEMP_FREEZER_INTERVAL 30
 #define FRIDGE__LOWER_TEMPERATURE_LIMIT 4
-#define FRIDGE__UPPER_TEMPERATURE_LIMIT 6
+#define FRIDGE__UPPER_TEMPERATURE_LIMIT 7
 #define FREEZER__LOWER_TEMPERATURE_LIMIT -20
 #define FREEZER__UPPER_TEMPERATURE_LIMIT -17
 #define FRIDGE__CHECK_TEMPERATURE_INTERVAL 500
@@ -61,7 +62,7 @@
 
 //* chlad
 #define FRIDGE__LOWER_TEMPERATURE_LIMIT 4
-#define FRIDGE__UPPER_TEMPERATURE_LIMIT 6
+#define FRIDGE__UPPER_TEMPERATURE_LIMIT 7
 #define FREEZER__LOWER_TEMPERATURE_LIMIT -21
 #define FREEZER__UPPER_TEMPERATURE_LIMIT -18
 #define FRIDGE__CHECK_TEMPERATURE_INTERVAL 5000
@@ -688,6 +689,8 @@ private:
 public:
 	//* default constructor
 	CRefrigerator() {
+		//* enable watchdog
+		wdt_enable(WDTO_2S);
 		//* protect compressor against repeated starts
 		_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
 		_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
@@ -696,6 +699,7 @@ public:
 	}
 
 	void loop() {
+		wdt_reset();
 		unsigned long currentMillis = millis();
 		if (currentMillis >= _printInterval) {
 			Serial.println("");
