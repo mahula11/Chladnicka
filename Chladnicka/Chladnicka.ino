@@ -97,7 +97,7 @@ private:
 	//byte _value2;
 
 protected:
-	unsigned long _currentMillis = 0; 
+	unsigned long _currentMillis = 0;
 	void loop(unsigned long currentMillis) {
 		_currentMillis = currentMillis;
 	}
@@ -138,9 +138,9 @@ public:
 		//_value2 = HIGH;
 		if (_pin2 != -1) {
 			digitalWrite(_pin2, HIGH);
-		} else{
+		} else {
 			Serial.println("pin2OnHIGH error!");
-		}		
+		}
 	}
 
 	void pinOnLOW() {
@@ -154,7 +154,7 @@ public:
 			digitalWrite(_pin2, LOW);
 		} else {
 			Serial.println("pin2OnLOW error!");
-		}		
+		}
 	}
 
 	bool getDigitalPinStatus() {
@@ -162,7 +162,7 @@ public:
 	}
 
 	bool getDigitalPin2Status() {
-		if (_pin2 != - 1) {
+		if (_pin2 != -1) {
 			return digitalRead(_pin2) ? true : false;
 		} else {
 			Serial.println("getDigitalPin2Status error!");
@@ -179,7 +179,7 @@ public:
 			return analogRead(_pin2);
 		} else {
 			Serial.println("getAnalogPin2Status error!");
-		}		
+		}
 	}
 };
 
@@ -683,14 +683,17 @@ private:
 	float _fridgeLowerTemperatureLimit = 0;
 	float _freezerLowerTemperatureLimit = 0;
 
+	float _temperatureFridge = 0;
+	float _temperatureFreezer = 0;
+
+	bool _tryPutDownLimitsBeforeStop = false;
+
 	unsigned long _checkTemperatureInterval = FRIDGE__CHECK_TEMPERATURE_INTERVAL;
 	unsigned long _printInterval = FRIDGE__PRINT_INTERVAL;
 
 public:
 	//* default constructor
 	CRefrigerator() {
-		//* enable watchdog
-		wdt_enable(WDTO_2S);
 		//* protect compressor against repeated starts
 		_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
 		_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
@@ -699,7 +702,6 @@ public:
 	}
 
 	void loop() {
-		wdt_reset();
 		unsigned long currentMillis = millis();
 		if (currentMillis >= _printInterval) {
 			Serial.println("");
@@ -722,7 +724,7 @@ public:
 			} else if (incomingByte == 'f') {
 				_valve.switchValveOnFreezer();
 			} //else if (incomingByte == 'z') {
-				
+
 			//}
 		}
 
@@ -744,17 +746,67 @@ public:
 			_lights.switchLights(_door.isDoorOpen());
 		}
 
+
 		//* kontrolujeme teplotu a ovladame v urceny interval (kazdych 5 sekund)
 		if (currentMillis >= _checkTemperatureInterval) {
 			_checkTemperatureInterval = currentMillis + FRIDGE__CHECK_TEMPERATURE_INTERVAL;
+			_temperatureFridge = _sensorFridge.getSensorCelsius();
+			_temperatureFreezer = _sensorFreezer.getSensorCelsius();
+		}
 
-			float temperatureFridge = _sensorFridge.getSensorCelsius();
-			float temperatureFreezer = _sensorFreezer.getSensorCelsius();
+		//* 5°C - pre chladnicku
+		//* -18 * pre mraznicku
+		if (_fridgeLowerTemperatureLimit < _temperatureFridge) {
+			_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
+			_tryPutDownLimitsBeforeStop = false;
+			if (_compressor.isStarted()) {
+				_valve.switchValveOnFridge();
+				//Serial.print("Kompresor ide pre chladnicku od: ");
+				//Serial.println(_compressor.getStartedTime());
+			} else {
+				_compressor.startASAP();
+				//Serial.print("Kompresor bude nastartovany pre chladnicku po: ");
+				//Serial.println(_compressor.getStartingTime());
+			}
+		} else if (_freezerLowerTemperatureLimit < _temperatureFreezer) {
+			_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
+			_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
+			_tryPutDownLimitsBeforeStop = false;
+			if (_compressor.isStarted()) {
+				_valve.switchValveOnFreezer();
+				//Serial.print("Kompresor ide pre mraznicku od: ");
+				//Serial.println(_compressor.getStartedTime());
+			} else {
+				_compressor.startASAP();
+				//Serial.print("Kompresor bude nastartovany pre mraznicku po: ");
+				//Serial.println(_compressor.getStartingTime());
+			}
+		} else {
+			_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
+			_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT;
+			if (_compressor.isStarted()) {
+				if (_tryPutDownLimitsBeforeStop == false) {
+					_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT - 1.5;
+					_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT - 1.5;
+					_tryPutDownLimitsBeforeStop = true;
+				} else {
+					_compressor.stopASAP();
+					_tryPutDownLimitsBeforeStop = false;
+				}
+				//Serial.print("Kompresor bude stopnuty co najskor, po case: ");
+				//Serial.println(_compressor.getStopingTime());
+			} else {
+				//_valve.switchValveOnFreezer();
+				//Serial.print("Kompresor je stopnuty. Najskor moze by zapnuty: ");
+				//Serial.println(_compressor.getStartingTime());
+			}
+		}
 
+		if (currentMillis >= _printInterval) {
 			Serial.print("Teplota v chladnicke: ");
-			Serial.println(temperatureFridge);
+			Serial.println(_temperatureFridge);
 			Serial.print("Teplota v mraznicke: ");
-			Serial.println(temperatureFreezer);
+			Serial.println(_temperatureFreezer);
 			Serial.print("Limit pre zapnutie chladnicky: ");
 			Serial.println(_fridgeLowerTemperatureLimit);
 			Serial.print("Limit pre zapnutie mraznicky: ");
@@ -762,45 +814,37 @@ public:
 			Serial.print("Ventil je prepnuty na: ");
 			Serial.println(_valve.isSwitchOnFridge() ? "Chladnicku/Mraznicku" : "Mraznicku");
 
-			//* 5°C - pre chladnicku
-			//* -18 * pre mraznicku
-			if (_fridgeLowerTemperatureLimit < temperatureFridge) {
-				_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
+			if (_fridgeLowerTemperatureLimit < _temperatureFridge) {
 				if (_compressor.isStarted()) {
-					_valve.switchValveOnFridge();
 					Serial.print("Kompresor ide pre chladnicku od: ");
 					Serial.println(_compressor.getStartedTime());
 				} else {
-					_compressor.startASAP();
 					Serial.print("Kompresor bude nastartovany pre chladnicku po: ");
 					Serial.println(_compressor.getStartingTime());
 				}
-			} else if (_freezerLowerTemperatureLimit < temperatureFreezer) {
-				_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
-				_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
+			} else if (_freezerLowerTemperatureLimit < _temperatureFreezer) {
 				if (_compressor.isStarted()) {
-					_valve.switchValveOnFreezer();
 					Serial.print("Kompresor ide pre mraznicku od: ");
 					Serial.println(_compressor.getStartedTime());
 				} else {
-					_compressor.startASAP();
 					Serial.print("Kompresor bude nastartovany pre mraznicku po: ");
 					Serial.println(_compressor.getStartingTime());
 				}
 			} else {
-				_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT;
-				_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT;
 				if (_compressor.isStarted()) {
-					_compressor.stopASAP();
-					Serial.print("Kompresor bude stopnuty co najskor, po case: ");
-					Serial.println(_compressor.getStopingTime());
+					if (_tryPutDownLimitsBeforeStop == true) {
+						Serial.print("");
+					} else {
+						Serial.print("Kompresor bude stopnuty co najskor, po case: ");
+						Serial.println(_compressor.getStopingTime());
+					}
 				} else {
-					//_valve.switchValveOnFreezer();
 					Serial.print("Kompresor je stopnuty. Najskor moze by zapnuty: ");
 					Serial.println(_compressor.getStartingTime());
 				}
 			}
 		}
+
 		//* set timers
 		if (currentMillis >= _printInterval) {
 			_printInterval = currentMillis + FRIDGE__PRINT_INTERVAL;
@@ -812,14 +856,64 @@ CRefrigerator * g_pRefrigerator;
 
 //* -----------------------------------------------------------
 void setup() {
+	watchdogSetup();
 	Serial.begin(9600);
 	g_pRefrigerator = new CRefrigerator();
 }
 
 //* -----------------------------------------------------------
 void loop() {
+	wdt_reset();
 	g_pRefrigerator->loop();
 	delay(50);
+}
+
+void watchdogSetup(void) {
+	cli(); // disable all interrupts
+	wdt_reset(); // reset the WDT timer
+	/*
+	Bit Name
+	7	WDIF
+	6	WDIE
+	5	WDP3
+	4	WDCE
+	3	WDE
+	2	WDP2
+	1	WDP1
+	0	WDP0
+
+	WDP3 WDP2 WDP1 WDP0 Time-out(ms)
+	0	  0    0    0    16
+	0	  0    0    1    32
+	0	  0    1    0    64
+	0 	  0    1    1    125
+	0 	  1    0    0    250
+	0 	  1    0    1    500
+	0 	  1    1    0    1000
+	0 	  1    1    1    2000
+	1 	  0    0    0    4000
+	1 	  0    0    1    8000
+
+	WDTCSR configuration:
+	WDIE = 1: Interrupt Enable
+	WDE = 1 :Reset Enable
+	WDP3 = 0 :For 2000ms Time-out
+	WDP2 = 1 :For 2000ms Time-out
+	WDP1 = 1 :For 2000ms Time-out
+	WDP0 = 1 :For 2000ms Time-out
+	*/
+	// Enter Watchdog Configuration mode:
+	WDTCSR |= (1 << WDCE) | (1 << WDE);
+	// Set Watchdog settings:
+	WDTCSR = (1 << WDIE) | (1 << WDE) | (0 << WDP3) | (1 << WDP2) | (1 << WDP1) | (1 << WDP0);
+	sei();
+}
+
+ISR(WDT_vect) // Watchdog timer interrupt.
+{
+	// Include your code here - be careful not to use functions they may cause the interrupt to hang and
+	// prevent a reset.
+	//* nedavat sem Serial.print(), lebo vyvolava prerusenie
 }
 
 
