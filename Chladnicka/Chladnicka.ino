@@ -125,7 +125,7 @@ public:
 		if (_pin2 != -1) {
 			digitalWrite(_pin2, value);
 		} else {
-			Serial.println("pin2Write error!");
+			Serial.println(F("pin2Write error!"));
 		}
 	}
 
@@ -139,7 +139,7 @@ public:
 		if (_pin2 != -1) {
 			digitalWrite(_pin2, HIGH);
 		} else {
-			Serial.println("pin2OnHIGH error!");
+			Serial.println(F("pin2OnHIGH error!"));
 		}
 	}
 
@@ -153,7 +153,7 @@ public:
 		if (_pin2 != -1) {
 			digitalWrite(_pin2, LOW);
 		} else {
-			Serial.println("pin2OnLOW error!");
+			Serial.println(F("pin2OnLOW error!"));
 		}
 	}
 
@@ -165,7 +165,7 @@ public:
 		if (_pin2 != -1) {
 			return digitalRead(_pin2) ? true : false;
 		} else {
-			Serial.println("getDigitalPin2Status error!");
+			Serial.println(F("getDigitalPin2Status error!"));
 			return false;
 		}
 	}
@@ -178,7 +178,7 @@ public:
 		if (_pin2 = !- 1) {
 			return analogRead(_pin2);
 		} else {
-			Serial.println("getAnalogPin2Status error!");
+			Serial.println(F("getAnalogPin2Status error!"));
 		}
 	}
 };
@@ -224,7 +224,7 @@ public:
 	void setDelayForStart() {
 		if (_earliestStartingTime == 0) {
 			_earliestStartingTime = millis() + COMPRESSOR__DELAY_FOR_START;
-			Serial.print("setDelayForStart(): set new _earliestStartingTime: ");
+			Serial.print(F("setDelayForStart(): set new _earliestStartingTime: "));
 			Serial.println(_earliestStartingTime);
 		}
 	}
@@ -245,11 +245,11 @@ public:
 		if (_startASAP == true) {
 			//* tato podmienka zisti, ci je nastaveny startovaci cas a ci uz je vhodny cas na start (ked je aktualny cas vacsi alebo rovny startovaciemu casu)
 			if (_earliestStartingTime > 0 && currentMillis >= _earliestStartingTime) {
-				Serial.println("CCompressor: start");
+				Serial.println(F("CCompressor: start"));
 				start();
 				_earliestStartingTime = 0;
 				_earliestStopingTime = currentMillis + COMPRESSOR__DELAY_FOR_STOP;
-				Serial.print("CCompressor: _earliestStopingTime: ");
+				Serial.print(F("CCompressor: _earliestStopingTime: "));
 				Serial.println(_earliestStopingTime);
 				_startASAP = false;
 			}
@@ -259,7 +259,7 @@ public:
 		if (_started == true && _stopASAP == true) {
 			if (_earliestStopingTime > 0 && _earliestStopingTime <= currentMillis) {
 				_stopASAP = false;
-				Serial.println("CCompressor: stop");
+				Serial.println(F("CCompressor: stop"));
 				stop();
 				setDelayForStart();
 			}
@@ -268,7 +268,7 @@ public:
 		//* zabezpeci aby kompresor nebezal dlhsie ako povoleny cas, aby nedoslo k poskodeniu kompresoru
 		if (_started == true) {
 			if (_timeStarted > 0 && ((_timeStarted + COMPRESSOR__LONGEST_RUNNING_TIME) <= currentMillis)) {
-				Serial.println("CCompressor: bezi prilis dlho, vypiname ho");
+				Serial.println(F("CCompressor: bezi prilis dlho, vypiname ho"));
 				stop();
 				setDelayForStart();
 			}
@@ -377,7 +377,7 @@ public:
 		float val = 0;
 		float min = 9999;
 		float max = -9999;
-		Serial.print("Stat: cur: ");
+		Serial.print(F("Stat: cur: "));
 		Serial.print(_sensorValues[_index - 1]);
 		for (int i = 0; i < NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE; i++) {
 			if (((int)_sensorValues[i]) != 9999) {
@@ -389,12 +389,12 @@ public:
 				ii++;
 			}
 		}
-		Serial.print(", min: ");
+		Serial.print(F(", min: "));
 		Serial.print(min);
-		Serial.print(", max: ");
+		Serial.print(F(", max: "));
 		Serial.print(max);
 		val = val / ii;
-		Serial.print(", avr: ");
+		Serial.print(F(", avr: "));
 		Serial.println(val);
 		return val;
 	}
@@ -467,7 +467,7 @@ public:
 	float getSensorCelsius() {
 		float r = getSensorImpedance();
 		if (r == -1) {
-			Serial.println("CTempSensor: Zo senzoru neprisla ziadna hodnota");
+			Serial.println(F("CTempSensor: Zo senzoru neprisla ziadna hodnota"));
 			return 88888;
 		}
 
@@ -488,7 +488,7 @@ public:
 			//* odcitame 2 od priemeru - tymto zrealnime odmeranu teplotu (voci meranej teplomerom arduino ukazuje o dva stupne viac)
 			return _arithAverage.getArithAverage() - 2;
 		} else {
-			Serial.println("CTempSensor: Zo senzora prisla hodnota, ktoru nemame v tabulke hodnot impedancie");
+			Serial.println(F("CTempSensor: Zo senzora prisla hodnota, ktoru nemame v tabulke hodnot impedancie"));
 			return 99999;
 		}
 	}
@@ -589,7 +589,7 @@ public:
 			pinOnHIGH();
 			pin2OnLOW();
 			_switched = _currentMillis;
-			Serial.print("Ventil sa prepina na chladnicku ");
+			Serial.print(F("Ventil sa prepina na chladnicku "));
 			Serial.println(_switched);
 		}
 	}
@@ -600,7 +600,7 @@ public:
 			pinOnLOW();
 			pin2OnHIGH();
 			_switched = _currentMillis;
-			Serial.println("Ventil sa prepina na mraznicku");
+			Serial.println(F("Ventil sa prepina na mraznicku"));
 		}
 	}
 
@@ -616,7 +616,7 @@ public:
 			pinOnLOW();
 			pin2OnLOW();
 			_switched = -1;
-			Serial.println("Napatie na ventil odpojene");
+			Serial.println(F("Napatie na ventil odpojene"));
 		}
 	}
 };
@@ -704,8 +704,8 @@ public:
 	void loop() {
 		unsigned long currentMillis = millis();
 		if (currentMillis >= _printInterval) {
-			Serial.println("");
-			Serial.print("currentMillis: ");
+			Serial.println(F(""));
+			Serial.print(F("currentMillis: "));
 			Serial.println(currentMillis);
 		}
 
@@ -717,7 +717,7 @@ public:
 
 		if (Serial.available()) {
 			int incomingByte = Serial.read();
-			Serial.print("I received: ");
+			Serial.print(F("I received: "));
 			Serial.println(incomingByte, DEC);
 			if (incomingByte == 'r') {
 				_valve.switchValveOnFridge();
@@ -732,7 +732,7 @@ public:
 		//* pokial nie, tak len zapneme osvetlenie chladnicky
 		if (_door.isAlarm()) {
 			if (currentMillis >= _printInterval) {
-				Serial.println("Door is in alarm!");
+				Serial.println(F("Door is in alarm!"));
 			}
 			_lights.setAlarm();
 			_buzzer.setAlarm(BUZZER__ALARM_OPEN_DOOR);
@@ -740,8 +740,8 @@ public:
 			_lights.resetAlarm();
 			_buzzer.resetAlarm();
 			if (currentMillis >= _printInterval) {
-				Serial.print("Door is ");
-				Serial.println(_door.isDoorOpen() ? "opened" : "closed");
+				Serial.print(F("Door is "));
+				Serial.println(_door.isDoorOpen() ? F("opened") : F("closed"));
 			}
 			_lights.switchLights(_door.isDoorOpen());
 		}
@@ -803,31 +803,31 @@ public:
 		}
 
 		if (currentMillis >= _printInterval) {
-			Serial.print("Teplota v chladnicke: ");
+			Serial.print(F("Teplota v chladnicke: "));
 			Serial.println(_temperatureFridge);
-			Serial.print("Teplota v mraznicke: ");
+			Serial.print(F("Teplota v mraznicke: "));
 			Serial.println(_temperatureFreezer);
-			Serial.print("Limit pre zapnutie chladnicky: ");
+			Serial.print(F("Limit pre zapnutie chladnicky: "));
 			Serial.println(_fridgeLowerTemperatureLimit);
-			Serial.print("Limit pre zapnutie mraznicky: ");
+			Serial.print(F("Limit pre zapnutie mraznicky: "));
 			Serial.println(_freezerLowerTemperatureLimit);
-			Serial.print("Ventil je prepnuty na: ");
-			Serial.println(_valve.isSwitchOnFridge() ? "Chladnicku/Mraznicku" : "Mraznicku");
+			Serial.print(F("Ventil je prepnuty na: "));
+			Serial.println(_valve.isSwitchOnFridge() ? F("Chladnicku/Mraznicku") : F("Mraznicku"));
 
 			if (_fridgeLowerTemperatureLimit < _temperatureFridge) {
 				if (_compressor.isStarted()) {
-					Serial.print("Kompresor ide pre chladnicku od: ");
+					Serial.print(F("Kompresor ide pre chladnicku od: "));
 					Serial.println(_compressor.getStartedTime());
 				} else {
-					Serial.print("Kompresor bude nastartovany pre chladnicku po: ");
+					Serial.print(F("Kompresor bude nastartovany pre chladnicku po: "));
 					Serial.println(_compressor.getStartingTime());
 				}
 			} else if (_freezerLowerTemperatureLimit < _temperatureFreezer) {
 				if (_compressor.isStarted()) {
-					Serial.print("Kompresor ide pre mraznicku od: ");
+					Serial.print(F("Kompresor ide pre mraznicku od: "));
 					Serial.println(_compressor.getStartedTime());
 				} else {
-					Serial.print("Kompresor bude nastartovany pre mraznicku po: ");
+					Serial.print(F("Kompresor bude nastartovany pre mraznicku po: "));
 					Serial.println(_compressor.getStartingTime());
 				}
 			} else {
@@ -835,11 +835,11 @@ public:
 					if (_tryPutDownLimitsBeforeStop == true) {
 						Serial.print("");
 					} else {
-						Serial.print("Kompresor bude stopnuty co najskor, po case: ");
+						Serial.print(F("Kompresor bude stopnuty co najskor, po case: "));
 						Serial.println(_compressor.getStopingTime());
 					}
 				} else {
-					Serial.print("Kompresor je stopnuty. Najskor moze by zapnuty: ");
+					Serial.print(F("Kompresor je stopnuty. Najskor moze by zapnuty: "));
 					Serial.println(_compressor.getStartingTime());
 				}
 			}
