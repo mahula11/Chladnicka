@@ -295,15 +295,45 @@ protected:
 
 class CVentilator : CObject {
 private:
+	unsigned long _timeStart = 0;
+	unsigned long _timeStop = 0;
 public:
 	CVentilator() : CObject(pinVentilator, OUTPUT) {}
 
-	void turnOn() {
-		pinOnHIGH();
+	void startWithDelay(unsigned long delay) {
+		if (getDigitalPinStatus() == false && _timeStart == 0) {
+			_timeStart = _currentMillis + delay;
+			Serial.print(F("Fridge ventilator will start with delay"));
+		}
 	}
 
-	void turnOff() {
-		pinOnLOW();
+	void stopWithDelay(unsigned long delay) {
+		if (getDigitalPinStatus() == true && _timeStop == 0) {
+			_timeStop = _currentMillis + delay;
+			Serial.print(F("Fridge ventilator will stop with delay"));
+		}
+	}
+
+	//bool willBeStarted() {
+	//	return _timeStart ? true : false;
+	//}
+
+	//bool willBeStopped() {
+	//	return _timeStop ? true : false;
+	//}
+
+	void loop(unsigned long currentMillis) {
+		CObject::loop(currentMillis);
+
+		if (_timeStart && _currentMillis >= _timeStart) {
+			_timeStart = 0;
+			pinOnHIGH();
+		}
+
+		if (_timeStop && _currentMillis >= _timeStop) {
+			_timeStop = 0;
+			pinOnLOW();
+		}
 	}
 };
 
@@ -714,6 +744,7 @@ public:
 		_lights.loop(currentMillis);
 		_buzzer.loop(currentMillis);
 		_valve.loop(currentMillis);
+		_ventilator.loop(currentMillis);
 
 		if (Serial.available()) {
 			int incomingByte = Serial.read();
@@ -754,6 +785,17 @@ public:
 			_temperatureFreezer = _sensorFreezer.getSensorCelsius();
 		}
 
+		//* start/stop ventilator		
+		if (_compressor.isStarted()) {
+			if (_valve.isSwitchOnFridge()) {
+				_ventilator.startWithDelay(0000);
+			} else {
+				_ventilator.stopWithDelay(0000);
+			}
+		} else {
+			_ventilator.stopWithDelay(0000);;
+		}
+
 		//* 5°C - pre chladnicku
 		//* -18 * pre mraznicku
 		if (_fridgeLowerTemperatureLimit < _temperatureFridge) {
@@ -786,8 +828,8 @@ public:
 			_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT;
 			if (_compressor.isStarted()) {
 				if (_tryPutDownLimitsBeforeStop == false) {
-					_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT - 1.5;
-					_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT - 1.5;
+					_fridgeLowerTemperatureLimit = FRIDGE__UPPER_TEMPERATURE_LIMIT - ((float)(FRIDGE__UPPER_TEMPERATURE_LIMIT - FRIDGE__LOWER_TEMPERATURE_LIMIT) / (float)2) - 1;
+					_freezerLowerTemperatureLimit = FREEZER__UPPER_TEMPERATURE_LIMIT - ((float)(FREEZER__UPPER_TEMPERATURE_LIMIT - FREEZER__LOWER_TEMPERATURE_LIMIT) / (float)2) - 1;
 					_tryPutDownLimitsBeforeStop = true;
 				} else {
 					_compressor.stopASAP();
@@ -833,7 +875,7 @@ public:
 			} else {
 				if (_compressor.isStarted()) {
 					if (_tryPutDownLimitsBeforeStop == true) {
-						Serial.print("");
+						Serial.print(F("Try put down limits before stop compressor."));
 					} else {
 						Serial.print(F("Kompresor bude stopnuty co najskor, po case: "));
 						Serial.println(_compressor.getStopingTime());
