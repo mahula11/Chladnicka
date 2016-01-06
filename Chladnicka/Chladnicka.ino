@@ -91,7 +91,7 @@ const int pinSensorFreezer = A4;
 class CObject {
 private:
 	byte _pin;
-	byte _pin2 = -1;
+	byte _pin2 = 255;
 	byte _mode;
 	//byte _value;
 	//byte _value2;
@@ -122,7 +122,7 @@ public:
 
 	void pin2Write(bool value) {
 		//_value2 = value;
-		if (_pin2 != -1) {
+		if (_pin2 != 255) {
 			digitalWrite(_pin2, value);
 		} else {
 			Serial.println(F("pin2Write error!"));
@@ -136,7 +136,7 @@ public:
 
 	void pin2OnHIGH() {
 		//_value2 = HIGH;
-		if (_pin2 != -1) {
+		if (_pin2 != 255) {
 			digitalWrite(_pin2, HIGH);
 		} else {
 			Serial.println(F("pin2OnHIGH error!"));
@@ -150,20 +150,20 @@ public:
 
 	void pin2OnLOW() {
 		//_value2 = LOW;
-		if (_pin2 != -1) {
+		if (_pin2 != 255) {
 			digitalWrite(_pin2, LOW);
 		} else {
 			Serial.println(F("pin2OnLOW error!"));
 		}
 	}
 
-	bool getDigitalPinStatus() {
-		return digitalRead(_pin) ? true : false;
+	int getDigitalPinStatus() {
+		return digitalRead(_pin);
 	}
 
-	bool getDigitalPin2Status() {
-		if (_pin2 != -1) {
-			return digitalRead(_pin2) ? true : false;
+	int getDigitalPin2Status() {
+		if (_pin2 != 255) {
+			return digitalRead(_pin2);
 		} else {
 			Serial.println(F("getDigitalPin2Status error!"));
 			return false;
@@ -175,7 +175,7 @@ public:
 	}
 
 	int getAnalogPin2Status() {
-		if (_pin2 = !- 1) {
+		if (_pin2 =! 255) {
 			return analogRead(_pin2);
 		} else {
 			Serial.println(F("getAnalogPin2Status error!"));
@@ -295,23 +295,50 @@ protected:
 
 class CVentilator : CObject {
 private:
+	boolean _blocked = false;
 	unsigned long _timeStart = 0;
 	unsigned long _timeStop = 0;
 public:
-	CVentilator() : CObject(pinVentilator, OUTPUT) {}
-
-	void startWithDelay(unsigned long delay) {
-		if (getDigitalPinStatus() == false && _timeStart == 0) {
-			_timeStart = _currentMillis + delay;
-			Serial.print(F("Fridge ventilator will start with delay"));
-		}
+	CVentilator() : CObject(pinVentilator, OUTPUT) {
+		//pinOnLOW();
 	}
 
-	void stopWithDelay(unsigned long delay) {
-		if (getDigitalPinStatus() == true && _timeStop == 0) {
-			_timeStop = _currentMillis + delay;
-			Serial.print(F("Fridge ventilator will stop with delay"));
-		}
+	//* immediately start (after closed door)
+	//void start() {
+
+	//}
+
+	void blockByDoor() {
+		_blocked = true;
+	}
+
+	void unblockByDoor() {
+		_blocked = false;
+	}
+
+	//* start ventilator with delay (wait for cooling)
+	void startWithDelay() {
+		//if (getDigitalPinStatus() == LOW && _timeStart == 0) {
+		//	unsigned long delay = 10000;
+		//	_timeStart = _currentMillis + delay;
+		//	Serial.print(F("Ventilator will start in "));
+		//	Serial.println(_timeStart);
+		//}
+	}
+
+	//* immediately stop (when open door)
+	//void stop() {
+
+	//}
+
+	//* stop with delay (stil circulate air from cool evaporator)
+	void stopWithDelay() {		
+		//if (getDigitalPinStatus() == HIGH && _timeStop == 0) {
+		//	unsigned long delay = 60000;
+		//	_timeStop = _currentMillis + delay;
+		//	Serial.print(F("Ventilator will stop in "));
+		//	Serial.println(_timeStop);
+		//}
 	}
 
 	//bool willBeStarted() {
@@ -323,17 +350,17 @@ public:
 	//}
 
 	void loop(unsigned long currentMillis) {
-		CObject::loop(currentMillis);
+		//CObject::loop(currentMillis);
 
-		if (_timeStart && _currentMillis >= _timeStart) {
-			_timeStart = 0;
-			pinOnHIGH();
-		}
+		//if (_timeStart && _currentMillis >= _timeStart) {
+		//	_timeStart = 0;
+		//	pinOnHIGH();
+		//}
 
-		if (_timeStop && _currentMillis >= _timeStop) {
-			_timeStop = 0;
-			pinOnLOW();
-		}
+		//if (_timeStop && _currentMillis >= _timeStop) {
+		//	_timeStop = 0;
+		//	pinOnLOW();
+		//}
 	}
 };
 
@@ -369,7 +396,7 @@ public:
 		CObject::loop(currentMillis);
 		if (_isAlarm == true) {
 			if (_alarmStart + LIGHTS__ALARM_INTERVAL <= currentMillis) {
-				pinWrite(!getDigitalPinStatus());
+				pinWrite(getDigitalPinStatus() == HIGH ? LOW : HIGH);
 				_isAlarm = false;
 			}
 		} else {
@@ -407,8 +434,8 @@ public:
 		float val = 0;
 		float min = 9999;
 		float max = -9999;
-		Serial.print(F("Stat: cur: "));
-		Serial.print(_sensorValues[_index - 1]);
+		//Serial.print(F("Stat: cur: "));
+		//Serial.print(_sensorValues[_index - 1]);
 		for (int i = 0; i < NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE; i++) {
 			if (((int)_sensorValues[i]) != 9999) {
 				val += _sensorValues[i];
@@ -419,13 +446,13 @@ public:
 				ii++;
 			}
 		}
-		Serial.print(F(", min: "));
-		Serial.print(min);
-		Serial.print(F(", max: "));
-		Serial.print(max);
+		//Serial.print(F(", min: "));
+		//Serial.print(min);
+		//Serial.print(F(", max: "));
+		//Serial.print(max);
 		val = val / ii;
-		Serial.print(F(", avr: "));
-		Serial.println(val);
+		//Serial.print(F(", avr: "));
+		//Serial.println(val);
 		return val;
 	}
 };
@@ -595,7 +622,7 @@ public:
 		CObject::loop(currentMillis);
 		if (_isAlarm == true) {
 			if (_alarmStart + _beepInterval <= currentMillis) {
-				pinWrite(!getDigitalPinStatus());
+				pinWrite(getDigitalPinStatus() == HIGH ? LOW : HIGH);
 				_isAlarm = false;
 			}
 		} else {
@@ -655,14 +682,14 @@ class CDoor : CObject {
 private:
 	unsigned long _openDoorTime = 0;
 	unsigned long _lastOpenTime = 0;
-	bool _isDoorOpen = false;
+	bool _isOpen = false;
 	bool _isAlarm = false;
 
 public:
 	CDoor() : CObject(pinDoorsSwitch, INPUT) {}
 
-	bool isDoorOpen() {
-		return _isDoorOpen;
+	bool isOpen() {
+		return _isOpen;
 	}
 
 	bool isAlarm() {
@@ -680,18 +707,18 @@ public:
 	void loop(unsigned long currentMillis) {
 		CObject::loop(currentMillis);
 		//* if door is open, pinStatus return false
-		if (getDigitalPinStatus() == false) {
-			if (_isDoorOpen == false) {
-				_isDoorOpen = true;
+		if (getDigitalPinStatus() == LOW) {
+			if (_isOpen == false) {
+				_isOpen = true;
 				_openDoorTime = currentMillis;
 			}
 			_lastOpenTime = currentMillis - _openDoorTime;
 		} else {
-			_isDoorOpen = false;
+			_isOpen = false;
 		}
 
 		//* set alarm flag, while door is open more than time in DOORS__ALARM_START
-		if (_isDoorOpen && _openDoorTime + DOORS__ALARM_START <= currentMillis) {
+		if (_isOpen && _openDoorTime + DOORS__ALARM_START <= currentMillis) {
 			_isAlarm = true;
 		} else {
 			_isAlarm = false;
@@ -724,10 +751,13 @@ private:
 public:
 	//* default constructor
 	CRefrigerator() {
-		//* protect compressor against repeated starts
+		//Serial.println("");
+		//Serial.println("------------------");
+		//Serial.println("Start refrigerator");
 		_fridgeLowerTemperatureLimit = FRIDGE__LOWER_TEMPERATURE_LIMIT;
 		_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
-		//_valve.switchValveOnFridge();
+
+		//* protect compressor against repeated starts
 		_compressor.setDelayForStart();
 	}
 
@@ -748,7 +778,7 @@ public:
 
 		if (Serial.available()) {
 			int incomingByte = Serial.read();
-			Serial.print(F("I received: "));
+			Serial.print(F("Received:"));
 			Serial.println(incomingByte, DEC);
 			if (incomingByte == 'r') {
 				_valve.switchValveOnFridge();
@@ -763,18 +793,20 @@ public:
 		//* pokial nie, tak len zapneme osvetlenie chladnicky
 		if (_door.isAlarm()) {
 			if (currentMillis >= _printInterval) {
-				Serial.println(F("Door is in alarm!"));
+				Serial.println(F("Door's in alarm"));
 			}
 			_lights.setAlarm();
 			_buzzer.setAlarm(BUZZER__ALARM_OPEN_DOOR);
+			_ventilator.blockByDoor();
 		} else {
 			_lights.resetAlarm();
 			_buzzer.resetAlarm();
 			if (currentMillis >= _printInterval) {
-				Serial.print(F("Door is "));
-				Serial.println(_door.isDoorOpen() ? F("opened") : F("closed"));
+				Serial.print(F("Door's "));
+				Serial.println(_door.isOpen() ? F("opened") : F("closed"));
 			}
-			_lights.switchLights(_door.isDoorOpen());
+			_lights.switchLights(_door.isOpen());
+			_door.isOpen() ? _ventilator.blockByDoor() : _ventilator.unblockByDoor();
 		}
 
 
@@ -788,12 +820,12 @@ public:
 		//* start/stop ventilator		
 		if (_compressor.isStarted()) {
 			if (_valve.isSwitchOnFridge()) {
-				_ventilator.startWithDelay(0000);
+				_ventilator.startWithDelay();
 			} else {
-				_ventilator.stopWithDelay(0000);
+				_ventilator.stopWithDelay();
 			}
 		} else {
-			_ventilator.stopWithDelay(0000);;
+			_ventilator.stopWithDelay();;
 		}
 
 		//* 5°C - pre chladnicku
@@ -844,6 +876,7 @@ public:
 			}
 		}
 
+		//* print info
 		if (currentMillis >= _printInterval) {
 			Serial.print(F("Teplota v chladnicke: "));
 			Serial.println(_temperatureFridge);
@@ -899,7 +932,10 @@ CRefrigerator * g_pRefrigerator;
 //* -----------------------------------------------------------
 void setup() {
 	watchdogSetup();
-	Serial.begin(9600);
+	Serial.begin(115200);
+	Serial.println("");
+	Serial.println("------------------");
+	Serial.println("Start refrigerator");
 	g_pRefrigerator = new CRefrigerator();
 }
 
