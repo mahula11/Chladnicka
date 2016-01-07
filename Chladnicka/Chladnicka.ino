@@ -899,7 +899,7 @@ CRefrigerator * g_pRefrigerator;
 //* -----------------------------------------------------------
 void setup() {
 	watchdogSetup();
-	Serial.begin(9600);
+	Serial.begin(115200);
 	g_pRefrigerator = new CRefrigerator();
 }
 
