@@ -1,5 +1,21 @@
+//#include <SdVolume.h>
+#include <SdSpiCard.h>
+#include <SdSpi.h>
+#include <SdInfo.h>
+#include <SdFatUtil.h>
+#include <SdFatmainpage.h>
+#include <SdFatConfig.h>
+#include <SdFat.h>
+#include <MinimumSerial.h>
 #include <avr/wdt.h>
+
+
 //#include "types.h"
+#include <SPI.h>
+
+//#include <SD.h>
+#include <DS3231.h>
+#include "Print_A.h"
 
 //typedef unsigned long ulong;
 
@@ -62,9 +78,9 @@
 
 //* chlad
 #define FRIDGE__LOWER_TEMPERATURE_LIMIT 4
-#define FRIDGE__UPPER_TEMPERATURE_LIMIT 7
+#define FRIDGE__UPPER_TEMPERATURE_LIMIT 8
 #define FREEZER__LOWER_TEMPERATURE_LIMIT -21
-#define FREEZER__UPPER_TEMPERATURE_LIMIT -18
+#define FREEZER__UPPER_TEMPERATURE_LIMIT -17
 #define FRIDGE__CHECK_TEMPERATURE_INTERVAL 5000
 #define FRIDGE__PRINT_INTERVAL 5000
 
@@ -74,7 +90,7 @@
 #define SENSORS_TABLE_SIZE 16
 
 //* pocet poloziek z ktorych sa vyratava arith.priemer nameranych hodnot teplotnych senzorov
-#define NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE 20
+#define NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE 10
 
 #endif //* ifdef TEST
 
@@ -87,6 +103,185 @@ const byte pinSolenoidValveFreezer = 8;
 const int pinDoorsSwitch = 5;
 const int pinSensorFridge = A5;
 const int pinSensorFreezer = A4;
+
+// ---------------------------------------------------------------------------------------------------------------
+
+
+//enum LOG_TYPE {
+//	GRAPH,		//* text "GRAPH" to log file
+//	SD_CARD,	//* empty type in log file
+//	DEBUG		//* log only to Serial (no to SD card)
+//};
+//
+//#define IFCARD(command) \
+//		if (type == SD_CARD || type == GRAPH) { \
+//			command; \
+//				}
+//
+//#define LOG_VAR(x) \
+//		String(#x) + String("=") + String(x)
+//
+////* print only on serial
+//#define LOG_DEBUG(...) \
+//		CLog::log(__FILE__, __LINE__ - 5, LOG_TYPE::DEBUG, __VA_ARGS__);
+//
+////* print to serial and SD with a GRAPH tag
+//#define LOG_GRAPH(...) \
+//		CLog::log(__FILE__, __LINE__ - 5, LOG_TYPE::GRAPH, __VA_ARGS__);
+//
+////* print to serial and SD
+//#define LOG_SD(...) \
+//		CLog::log(__FILE__, __LINE__ - 5, LOG_TYPE::SD_CARD, __VA_ARGS__);
+//
+//// Addition by NicoHood
+//template <typename First, typename... Rest>
+//void print(LOG_TYPE type, File & file, const First& first, const Rest&... rest) {
+//	printWrapper(0, type, file, first, rest...);
+//}
+//
+//template <typename First>
+//void printWrapper(byte comma, LOG_TYPE type, File & file, const First& first) {
+//	if (comma == 1) {
+//		Serial.print(",");
+//		IFCARD(file.print(","));
+//		//if (type == SD_CARD || type == GRAPH) {
+//		//	file.print(",");
+//		//}
+//	}
+//	comma = 1;
+//	Serial.print(first);
+//	IFCARD(file.print(first))
+//}
+//
+//template <typename First, typename... Rest>
+//void printWrapper(byte comma, LOG_TYPE type, File & file, const First& first, const Rest&... rest) {
+//	if (comma == 1) {
+//		Serial.print(",");
+//		IFCARD(file.print(","))
+//	}
+//	comma = 1;
+//	Serial.print(first);
+//	IFCARD(file.print(first))
+//		printWrapper(1, type, file, rest...); // recursive call using pack expansion syntax
+//}
+//
+//template <typename First, typename... Rest>
+//void println(const First& first, const Rest&... rest) {
+//	printlnWrapper(first, rest...);
+//}
+//
+//template <typename First>
+//void printlnWrapper(LOG_TYPE type, File & file, const First& first) {
+//	//Serial.print("jedno parametrovy println");
+//	Serial.print(",");
+//	Serial.println(first);
+//}
+//
+//template <typename First, typename... Rest>
+//void printlnWrapper(const First& first, const Rest&... rest) {
+//	//size_t r = 0;
+//	//Serial.print("viac parametrovy println");
+//	Serial.print(",");
+//	Serial.print(first);
+//	printlnWrapper(rest...); // recursive call using pack expansion syntax
+//	//return r;
+//}
+
+ArduinoOutStream cout(Serial);
+ArduinoOutStream coutf(SdFile);
+
+//dorobit logoanie,neloguje cas, datum v print_a.h
+
+class CLog {
+public:
+	static DS3231 * _rtc;
+	//static String _fileName;
+	static String _date;
+	static String _time;
+	//static SdFile _sdFile;
+	static char _bufDateTime[15];
+	static char _bufLogFileName[20];
+
+	static void setRTC(DS3231 * rtc) {
+		_rtc = rtc;
+	}
+
+	static const char * getDateTime() {
+		int day, mon, year;
+		sscanf(_date.c_str(), "%d.%d.%d", &day, &mon, &year);
+		_time = _rtc->getTimeStr();
+		int hour, min, sec;
+		sscanf(_time.c_str(), "%d:%d:%d", &hour, &min, &sec);
+		obufstream ob(_bufDateTime, sizeof(_bufDateTime));
+		ob.fill('0');
+		ob << setw(2) << day << setw(2) << mon << year << ',' << setw(2) << hour << setw(2) << min << setw(2) << sec;
+		return _bufDateTime;
+	}
+
+	static const char * getLogFileName() {
+		//cout << "datum: " << _rtc->getDateStr(FORMAT_SHORT) << " , cas: " << _rtc->getTimeStr() << endl;
+		if (_date != _rtc->getDateStr(FORMAT_SHORT)) {
+			_date = _rtc->getDateStr(FORMAT_SHORT);
+			int day, mon, year;
+			sscanf(_date.c_str(), "%d.%d.%d", &day, &mon, &year);
+			obufstream ob(_bufLogFileName, sizeof(_bufLogFileName));
+			ob.fill('0');
+			//* "f290216.log"
+			ob << 'f' << setw(2) << day << setw(2) << mon << year << ".log";
+			return _bufLogFileName; // _fileName.c_str();
+		}
+	}
+
+	static String getActualFileName(String file) {
+		file.remove(0, file.lastIndexOf('\\') + 1);
+		return file;
+	}
+
+	//template <typename First, typename... Rest>
+	//static void log(ostream & out, File * dataFile, String file, int line, enum LOG_TYPE type, const First& first, const Rest&... rest) {
+	//	file.remove(0, file.lastIndexOf('\\') + 1);
+
+	//	//setFileName();
+
+	//	//nefunguje otvorenie suboru, skusit dat do cpp
+	//	//File dataFile;
+	//	//if (type == GRAPH || type == SD_CARD) {
+	//	//	dataFile = SD.open("aa.txt", FILE_WRITE);
+	//	//	dataFile.print("qq");
+	//		if (dataFile) {
+	//			Serial.println("Subor otvoreny");
+	//		} else {
+	//			Serial.println("Subor neotvoreny");
+	//		}
+	//	//}
+	//	//print(type, *dataFile, _rtc->getDateStr(), _rtc->getTimeStr(), file, line);
+	//	//printlnWrapper(type, *dataFile, first, rest...);
+
+	//	//if (type == GRAPH || type == SD_CARD) {
+	//	//	dataFile.close();
+	//	//}
+
+	//	//if (type == DEBUG) {
+	//	//	//* print pnly on Serial (no to file to sd card)
+	//	//	print(_rtc->getDateStr(), _rtc->getTimeStr(), file, line, 'D');
+	//	//	printlnWrapper(first, rest...);
+	//	//} else if (type == SD_CARD) {
+	//	//	//* print on Serial and to SD card
+	//	//	print(_rtc->getDateStr(), _rtc->getTimeStr(), file, line, 'S');
+	//	//	printlnWrapper(first, rest...);
+	//	//} else if (type == GRAPH) {
+	//	//	//* print on Serial and SD card with mark "G" as GRAPH
+	//	//	print(_rtc->getDateStr(), _rtc->getTimeStr(), file, line, 'G');
+	//	//	printlnWrapper(first, rest...);
+	//	//}		
+	//}
+};
+
+char CLog::_bufLogFileName[20];
+char CLog::_bufDateTime[15];
+DS3231 * CLog::_rtc = 0;
+String CLog::_date = "";
+String CLog::_time = "";
 
 class CObject {
 private:
@@ -122,11 +317,11 @@ public:
 
 	void pin2Write(bool value) {
 		//_value2 = value;
-		if (_pin2 != -1) {
-			digitalWrite(_pin2, value);
-		} else {
-			Serial.println(F("pin2Write error!"));
-		}
+		//if (_pin2 != -1) {
+		digitalWrite(_pin2, value);
+		//} else {
+		//	Serial.println(F("pin2Write error!"));
+		//}
 	}
 
 	void pinOnHIGH() {
@@ -136,11 +331,11 @@ public:
 
 	void pin2OnHIGH() {
 		//_value2 = HIGH;
-		if (_pin2 != -1) {
+		//if (_pin2 != -1) {
 			digitalWrite(_pin2, HIGH);
-		} else {
-			Serial.println(F("pin2OnHIGH error!"));
-		}
+		//} else {
+		//	Serial.println(F("pin2OnHIGH error!"));
+		//}
 	}
 
 	void pinOnLOW() {
@@ -150,11 +345,11 @@ public:
 
 	void pin2OnLOW() {
 		//_value2 = LOW;
-		if (_pin2 != -1) {
+		//if (_pin2 != -1) {
 			digitalWrite(_pin2, LOW);
-		} else {
-			Serial.println(F("pin2OnLOW error!"));
-		}
+		//} else {
+		//	Serial.println(F("pin2OnLOW error!"));
+		//}
 	}
 
 	bool getDigitalPinStatus() {
@@ -162,12 +357,12 @@ public:
 	}
 
 	bool getDigitalPin2Status() {
-		if (_pin2 != -1) {
+		//if (_pin2 != -1) {
 			return digitalRead(_pin2) ? true : false;
-		} else {
-			Serial.println(F("getDigitalPin2Status error!"));
-			return false;
-		}
+		//} else {
+		//	Serial.println(F("getDigitalPin2Status error!"));
+		//	return false;
+		//}
 	}
 
 	int getAnalogPinStatus() {
@@ -175,11 +370,11 @@ public:
 	}
 
 	int getAnalogPin2Status() {
-		if (_pin2 = !- 1) {
+		//if (_pin2 = !- 1) {
 			return analogRead(_pin2);
-		} else {
-			Serial.println(F("getAnalogPin2Status error!"));
-		}
+		//} else {
+		//	Serial.println(F("getAnalogPin2Status error!"));
+		//}
 	}
 };
 
@@ -407,8 +602,8 @@ public:
 		float val = 0;
 		float min = 9999;
 		float max = -9999;
-		Serial.print(F("Stat: cur: "));
-		Serial.print(_sensorValues[_index - 1]);
+		//Serial.print(F("Stat: cur: "));
+		//Serial.print(_sensorValues[_index - 1]);
 		for (int i = 0; i < NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE; i++) {
 			if (((int)_sensorValues[i]) != 9999) {
 				val += _sensorValues[i];
@@ -419,13 +614,13 @@ public:
 				ii++;
 			}
 		}
-		Serial.print(F(", min: "));
-		Serial.print(min);
-		Serial.print(F(", max: "));
-		Serial.print(max);
+		//Serial.print(F(", min: "));
+		//Serial.print(min);
+		//Serial.print(F(", max: "));
+		//Serial.print(max);
 		val = val / ii;
-		Serial.print(F(", avr: "));
-		Serial.println(val);
+		//Serial.print(F(", avr: "));
+		//Serial.println(val);
 		return val;
 	}
 };
@@ -433,7 +628,7 @@ public:
 class CTempSensor : CObject {
 private:
 	struct stSensorTempTable {
-		float degC;
+		int degC;
 		float impedance;
 	};
 	stSensorTempTable _table[SENSORS_TABLE_SIZE] = {
@@ -511,7 +706,8 @@ public:
 		if (indexOfArr != -1) {
 			//float celsius = map(r, _table[indexOfArr + 1].impedance, _table[indexOfArr].impedance, _table[indexOfArr + 1].degC, _table[indexOfArr].degC);
 			//* ziskame mapnutu hodnotu nameraneho odporu zo snimaca do tabulky _table
-			float celsius = mapfloat(r, _table[indexOfArr + 1].impedance, _table[indexOfArr].impedance, _table[indexOfArr + 1].degC, _table[indexOfArr].degC);
+			float celsius = mapfloat(r, _table[indexOfArr + 1].impedance, _table[indexOfArr].impedance, 
+									(float)_table[indexOfArr + 1].degC, (float)_table[indexOfArr].degC);
 			//* pridame ju do triedy, ktora vypocita priemer z poslednych 10 merani
 			_arithAverage.addValueForArithAverage(celsius);
 			//* ziskame aritmeticky priemer poslednych 10 merani (teplot v chladnicke/mraznicke)
@@ -895,19 +1091,201 @@ public:
 };
 
 CRefrigerator * g_pRefrigerator;
+//DS3231  rtc(SDA, SCL);
+Sd2Card card;
+//SdVolume volume;
+SdFile root;
+
+SdFat SD;
+
+//DS3231 * CLog::_rtc = 0;
+
+
 
 //* -----------------------------------------------------------
 void setup() {
+	/*
 	watchdogSetup();
 	Serial.begin(115200);
+	
 	g_pRefrigerator = new CRefrigerator();
+	*/
+
+	Serial.begin(115200);
+	while (!Serial) {
+		; // wait for serial port to connect. Needed for native USB port only
+	}
+	// Initialize the rtc object
+	DS3231 * rtc1 = new DS3231(SDA, SCL);
+	rtc1->begin();
+	//CLog();
+	CLog::setRTC(rtc1);
+	//Time t = rtc1->getTime();
+	//CLog::set("aa.log", *rtc1);
+	//rtc.begin();
+	//CLog(DEBUG, "hodnota1");
+
+	// The following lines can be uncommented to set the date and time
+	//rtc1->setDOW(MONDAY);     // Set Day-of-Week to SUNDAY
+	//rtc1->setTime(1, 34, 00);     // Set the time to 12:00:00 (24hr format)
+	//rtc1->setDate(29, 2, 2016);   // Set the date to January 1st, 2014
+
+	
+
+	Serial.println("\nInitializing SD card...");
+
+	const int chipSelect = 4;
+
+	if (!SD.begin(chipSelect)) {
+		Serial.println("Card failed, or not present");
+		// don't do anything more:
+		return;
+	}
+	Serial.println("1111card initialized.");
+
+	// we'll use the initialization code from the utility libraries
+	// since we're just testing if the card is working!
+	if (!card.init(SPI_HALF_SPEED, chipSelect)) {
+		Serial.println("initialization failed. Things to check:");
+		Serial.println("* is a card inserted?");
+		Serial.println("* is your wiring correct?");
+		Serial.println("* did you change the chipSelect pin to match your shield or module?");
+		return;
+	} else {
+		Serial.println("Wiring is correct and a card is present.");
+	}
+
+	// print the type of card
+	Serial.print("\nCard type: ");
+	switch (card.type()) {
+		case SD_CARD_TYPE_SD1:
+			Serial.println("SD1");
+			break;
+		case SD_CARD_TYPE_SD2:
+			Serial.println("SD2");
+			break;
+		case SD_CARD_TYPE_SDHC:
+			Serial.println("SDHC");
+			break;
+		default:
+			Serial.println("Unknown");
+	}
+
+	// Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
+	//if (!volume.init(card)) {
+	//	Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
+	//	return;
+	//}
+
+
+	// print the type and size of the first FAT-type volume
+	//uint32_t volumesize;
+	//Serial.print("\nVolume type is FAT");
+	//Serial.println(volume.fatType(), DEC);
+	//Serial.println();
+
+	//volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
+	//volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+	//volumesize *= 512;                            // SD card blocks are always 512 bytes
+	//Serial.print("Volume size (bytes): ");
+	//Serial.println(volumesize);
+	//Serial.print("Volume size (Kbytes): ");
+	//volumesize /= 1024;
+	//Serial.println(volumesize);
+	//Serial.print("Volume size (Mbytes): ");
+	//volumesize /= 1024;
+	//Serial.println(volumesize);
+
+
+	//Serial.println("\nFiles found on the card (name, date and size in bytes): ");
+	//root.openRoot(volume);
+
+	//// list all files in the card with date and size
+	SD.ls(LS_R | LS_DATE | LS_SIZE);
+
+
+	//LOG_DEBUG(1);
+	
+	
 }
+
 
 //* -----------------------------------------------------------
 void loop() {
+
+	//int sd = 234;
+	//String sdaa;
+	char sdaa = '2';
+	//Serial.println(sdaa);\
+	//cout << "sd:" << sdaa << endl;
+	unsigned int teplota = 20;
+	LOG_DEBUG(LOG_VAR(sdaa));
+	LOG_GRAPH(LOG_VAR(teplota));
+	LOG_SD("toplota1:" << teplota);
+	//cout << "ide" << endl;
+
+	//ofstream sdout("novy.txt", ios::app);
+	//const char * constChar = "nejaky testovaci text";
+	//cout << "test cout"; 
+	//sdout << 1 << "test text" << 5 << LOG_VAR(constChar);
+	//sdout.close();
+
+	//LOG_DEBUG(23);
+	//LOG_GRAPH(24);
+	//LOG_SD(25);
+	//LOG(LOG_TYPE::SD1, 4);
+	//print(111);
+	String dataString = "";
+
+	//File dataFile;
+	//if (1) {
+	//	dataFile = SD.open("aaqq.txt", FILE_WRITE);
+	//	if (dataFile) {
+	//		Serial.println("Subor aaqq otvoreny");
+	//	} else {
+	//		Serial.println("Subor aaqq neotvoreny");
+	//	}
+	//}
+	//	dataFile.close();
+
+	/*
 	wdt_reset();
 	g_pRefrigerator->loop();
 	delay(50);
+	*/
+	
+	
+	// Send Day-of-Week
+	//Serial.print(rtc.getDOWStr());
+	//Serial.print(" ");
+
+	// Send date
+	//Serial.print(rtc.getDateStr());
+	//Serial.print(" -- ");
+
+	// Send time
+	//Serial.println(rtc.getTimeStr());
+	
+	//dataString = rtc.getDateStr() + String(" ") + rtc.getTimeStr();
+
+	//File dataFile = SD.open("datalog1.txt", FILE_WRITE);
+
+	//// if the file is available, write to it:
+	//if (dataFile) {
+	//	dataFile.println(dataString);
+	//	dataFile.close();
+	//	// print to the serial port too:
+	//	Serial.println(dataString);
+	//}
+	//// if the file isn't open, pop up an error:
+	//else {
+	//	Serial.println("error opening datalog.txt");
+	//}
+
+	
+
+	// Wait one second before repeating :)
+	delay(2000);
 }
 
 void watchdogSetup(void) {
