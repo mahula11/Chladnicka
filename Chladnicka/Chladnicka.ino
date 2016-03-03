@@ -94,6 +94,8 @@
 
 #endif //* ifdef TEST
 
+//* SD card use these pins: 9, 11, 12, 13
+//* RTC module use these pins: A4, A5
 const byte pinCompressor = 6;
 const byte pinVentilator = 2;
 const byte pinBuzzer = 7;
@@ -101,187 +103,79 @@ const byte pinLights = 3;
 const byte pinSolenoidValveFridge = 4;
 const byte pinSolenoidValveFreezer = 8;
 const int pinDoorsSwitch = 5;
-const int pinSensorFridge = A5;
-const int pinSensorFreezer = A4;
+const int pinSensorFridge = A3;     //* A5 -> A3
+const int pinSensorFreezer = A2;	//* A4 -> A2
+//toto prerobit, nastavit nove cisla pinov pre kompresor a ostatne veci
+const int pinSDCardChipSelect = 9;
+
+
 
 // ---------------------------------------------------------------------------------------------------------------
 
-
-//enum LOG_TYPE {
-//	GRAPH,		//* text "GRAPH" to log file
-//	SD_CARD,	//* empty type in log file
-//	DEBUG		//* log only to Serial (no to SD card)
-//};
-//
-//#define IFCARD(command) \
-//		if (type == SD_CARD || type == GRAPH) { \
-//			command; \
-//				}
-//
-//#define LOG_VAR(x) \
-//		String(#x) + String("=") + String(x)
-//
-////* print only on serial
-//#define LOG_DEBUG(...) \
-//		CLog::log(__FILE__, __LINE__ - 5, LOG_TYPE::DEBUG, __VA_ARGS__);
-//
-////* print to serial and SD with a GRAPH tag
-//#define LOG_GRAPH(...) \
-//		CLog::log(__FILE__, __LINE__ - 5, LOG_TYPE::GRAPH, __VA_ARGS__);
-//
-////* print to serial and SD
-//#define LOG_SD(...) \
-//		CLog::log(__FILE__, __LINE__ - 5, LOG_TYPE::SD_CARD, __VA_ARGS__);
-//
-//// Addition by NicoHood
-//template <typename First, typename... Rest>
-//void print(LOG_TYPE type, File & file, const First& first, const Rest&... rest) {
-//	printWrapper(0, type, file, first, rest...);
-//}
-//
-//template <typename First>
-//void printWrapper(byte comma, LOG_TYPE type, File & file, const First& first) {
-//	if (comma == 1) {
-//		Serial.print(",");
-//		IFCARD(file.print(","));
-//		//if (type == SD_CARD || type == GRAPH) {
-//		//	file.print(",");
-//		//}
-//	}
-//	comma = 1;
-//	Serial.print(first);
-//	IFCARD(file.print(first))
-//}
-//
-//template <typename First, typename... Rest>
-//void printWrapper(byte comma, LOG_TYPE type, File & file, const First& first, const Rest&... rest) {
-//	if (comma == 1) {
-//		Serial.print(",");
-//		IFCARD(file.print(","))
-//	}
-//	comma = 1;
-//	Serial.print(first);
-//	IFCARD(file.print(first))
-//		printWrapper(1, type, file, rest...); // recursive call using pack expansion syntax
-//}
-//
-//template <typename First, typename... Rest>
-//void println(const First& first, const Rest&... rest) {
-//	printlnWrapper(first, rest...);
-//}
-//
-//template <typename First>
-//void printlnWrapper(LOG_TYPE type, File & file, const First& first) {
-//	//Serial.print("jedno parametrovy println");
-//	Serial.print(",");
-//	Serial.println(first);
-//}
-//
-//template <typename First, typename... Rest>
-//void printlnWrapper(const First& first, const Rest&... rest) {
-//	//size_t r = 0;
-//	//Serial.print("viac parametrovy println");
-//	Serial.print(",");
-//	Serial.print(first);
-//	printlnWrapper(rest...); // recursive call using pack expansion syntax
-//	//return r;
-//}
-
 ArduinoOutStream cout(Serial);
-ArduinoOutStream coutf(SdFile);
 
-//dorobit logoanie,neloguje cas, datum v print_a.h
+const char * strFindL(const char * str, char c) {
+	int i;
+	for (i = strlen(str); i > 0; i--) {
+		if (str[i] == c) {
+			break;
+		}
+	}
+	return str + ++i;
+}
 
 class CLog {
 public:
 	static DS3231 * _rtc;
-	//static String _fileName;
-	static String _date;
-	static String _time;
-	//static SdFile _sdFile;
-	static char _bufDateTime[15];
-	static char _bufLogFileName[20];
+	//* sample: 01.01.16
+	static char _date[9];
+	//* sample: 20:01:05
+	//static char _time[9];
+	static char _bufDateTime[14];
+	static char _bufLogFileName[12];
+	//* day, mon, year
+	//* hour, min, sec
+	static int _one, _two, _three;
+	static obufstream _obs;
 
 	static void setRTC(DS3231 * rtc) {
 		_rtc = rtc;
 	}
 
-	static const char * getDateTime() {
-		int day, mon, year;
-		sscanf(_date.c_str(), "%d.%d.%d", &day, &mon, &year);
-		_time = _rtc->getTimeStr();
-		int hour, min, sec;
-		sscanf(_time.c_str(), "%d:%d:%d", &hour, &min, &sec);
-		obufstream ob(_bufDateTime, sizeof(_bufDateTime));
-		ob.fill('0');
-		ob << setw(2) << day << setw(2) << mon << year << ',' << setw(2) << hour << setw(2) << min << setw(2) << sec;
+	static const char * getDateTime() {		
+		sscanf(_date, "%d.%d.%d", &_one, &_two, &_three);
+		_obs.init(_bufDateTime, sizeof(_bufDateTime));
+		_obs.fill('0');
+		_obs << setw(2) << _one << setw(2) << _two << _three << ',';
+		sscanf(_rtc->getTimeStr(), "%d:%d:%d", &_one, &_two, &_three);
+		_obs << setw(2) << _one << setw(2) << _two << setw(2) << _three;
 		return _bufDateTime;
 	}
 
 	static const char * getLogFileName() {
-		//cout << "datum: " << _rtc->getDateStr(FORMAT_SHORT) << " , cas: " << _rtc->getTimeStr() << endl;
-		if (_date != _rtc->getDateStr(FORMAT_SHORT)) {
-			_date = _rtc->getDateStr(FORMAT_SHORT);
-			int day, mon, year;
-			sscanf(_date.c_str(), "%d.%d.%d", &day, &mon, &year);
-			obufstream ob(_bufLogFileName, sizeof(_bufLogFileName));
-			ob.fill('0');
+		if (strcmp(_date, _rtc->getDateStr(FORMAT_SHORT)) != 0) {
+			strcpy(_date, _rtc->getDateStr(FORMAT_SHORT));
+			sscanf(_date, "%d.%d.%d", &_one, &_two, &_three);
+			_obs.init(_bufLogFileName, sizeof(_bufLogFileName));
+			_obs.fill('0');
 			//* "f290216.log"
-			ob << 'f' << setw(2) << day << setw(2) << mon << year << ".log";
+			_obs << 'f' << setw(2) << _one << setw(2) << _two << _three << ".log";
 			return _bufLogFileName; // _fileName.c_str();
 		}
 	}
 
-	static String getActualFileName(String file) {
-		file.remove(0, file.lastIndexOf('\\') + 1);
-		return file;
+	static const char * getActualFileName(const char * file) {
+		//file.remove(0, file.lastIndexOf('\\') + 1);
+		return strFindL(file, '\\');
 	}
-
-	//template <typename First, typename... Rest>
-	//static void log(ostream & out, File * dataFile, String file, int line, enum LOG_TYPE type, const First& first, const Rest&... rest) {
-	//	file.remove(0, file.lastIndexOf('\\') + 1);
-
-	//	//setFileName();
-
-	//	//nefunguje otvorenie suboru, skusit dat do cpp
-	//	//File dataFile;
-	//	//if (type == GRAPH || type == SD_CARD) {
-	//	//	dataFile = SD.open("aa.txt", FILE_WRITE);
-	//	//	dataFile.print("qq");
-	//		if (dataFile) {
-	//			Serial.println("Subor otvoreny");
-	//		} else {
-	//			Serial.println("Subor neotvoreny");
-	//		}
-	//	//}
-	//	//print(type, *dataFile, _rtc->getDateStr(), _rtc->getTimeStr(), file, line);
-	//	//printlnWrapper(type, *dataFile, first, rest...);
-
-	//	//if (type == GRAPH || type == SD_CARD) {
-	//	//	dataFile.close();
-	//	//}
-
-	//	//if (type == DEBUG) {
-	//	//	//* print pnly on Serial (no to file to sd card)
-	//	//	print(_rtc->getDateStr(), _rtc->getTimeStr(), file, line, 'D');
-	//	//	printlnWrapper(first, rest...);
-	//	//} else if (type == SD_CARD) {
-	//	//	//* print on Serial and to SD card
-	//	//	print(_rtc->getDateStr(), _rtc->getTimeStr(), file, line, 'S');
-	//	//	printlnWrapper(first, rest...);
-	//	//} else if (type == GRAPH) {
-	//	//	//* print on Serial and SD card with mark "G" as GRAPH
-	//	//	print(_rtc->getDateStr(), _rtc->getTimeStr(), file, line, 'G');
-	//	//	printlnWrapper(first, rest...);
-	//	//}		
-	//}
 };
 
-char CLog::_bufLogFileName[20];
-char CLog::_bufDateTime[15];
+char CLog::_bufLogFileName[12];
+char CLog::_bufDateTime[14];
 DS3231 * CLog::_rtc = 0;
-String CLog::_date = "";
-String CLog::_time = "";
+char CLog::_date[9] = { '0' };
+int CLog::_one = 0, CLog::_two = 0, CLog::_three = 0;
+obufstream CLog::_obs;
 
 class CObject {
 private:
@@ -1092,200 +986,89 @@ public:
 
 CRefrigerator * g_pRefrigerator;
 //DS3231  rtc(SDA, SCL);
-Sd2Card card;
+
 //SdVolume volume;
-SdFile root;
+//SdFile root;
+
 
 SdFat SD;
 
 //DS3231 * CLog::_rtc = 0;
 
-
-
-//* -----------------------------------------------------------
-void setup() {
-	/*
-	watchdogSetup();
-	Serial.begin(115200);
-	
-	g_pRefrigerator = new CRefrigerator();
-	*/
-
-	Serial.begin(115200);
-	while (!Serial) {
-		; // wait for serial port to connect. Needed for native USB port only
-	}
-	// Initialize the rtc object
-	DS3231 * rtc1 = new DS3231(SDA, SCL);
-	rtc1->begin();
-	//CLog();
-	CLog::setRTC(rtc1);
-	//Time t = rtc1->getTime();
-	//CLog::set("aa.log", *rtc1);
-	//rtc.begin();
-	//CLog(DEBUG, "hodnota1");
-
-	// The following lines can be uncommented to set the date and time
-	//rtc1->setDOW(MONDAY);     // Set Day-of-Week to SUNDAY
-	//rtc1->setTime(1, 34, 00);     // Set the time to 12:00:00 (24hr format)
-	//rtc1->setDate(29, 2, 2016);   // Set the date to January 1st, 2014
-
-	
-
-	Serial.println("\nInitializing SD card...");
-
-	const int chipSelect = 4;
-
-	if (!SD.begin(chipSelect)) {
-		Serial.println("Card failed, or not present");
-		// don't do anything more:
-		return;
-	}
-	Serial.println("1111card initialized.");
-
+void diagnosticSD(const int chipSelect) {
+	Sd2Card card;
 	// we'll use the initialization code from the utility libraries
 	// since we're just testing if the card is working!
 	if (!card.init(SPI_HALF_SPEED, chipSelect)) {
-		Serial.println("initialization failed. Things to check:");
-		Serial.println("* is a card inserted?");
-		Serial.println("* is your wiring correct?");
-		Serial.println("* did you change the chipSelect pin to match your shield or module?");
+		Serial.println(F("initialization failed. Things to check:"));
+		Serial.println(F("* is a card inserted?"));
+		Serial.println(F("* is your wiring correct?"));
+		Serial.println(F("* did you change the chipSelect pin to match your shield or module?"));
 		return;
 	} else {
-		Serial.println("Wiring is correct and a card is present.");
+		Serial.println(F("Wiring is correct and a card is present."));
 	}
 
 	// print the type of card
-	Serial.print("\nCard type: ");
+	Serial.print(F("\nCard type: "));
 	switch (card.type()) {
 		case SD_CARD_TYPE_SD1:
-			Serial.println("SD1");
+			Serial.println(F("SD1"));
 			break;
 		case SD_CARD_TYPE_SD2:
-			Serial.println("SD2");
+			Serial.println(F("SD2"));
 			break;
 		case SD_CARD_TYPE_SDHC:
-			Serial.println("SDHC");
+			Serial.println(F("SDHC"));
 			break;
 		default:
-			Serial.println("Unknown");
+			Serial.println(F("Unknown"));
 	}
+}
 
-	// Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
-	//if (!volume.init(card)) {
-	//	Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
-	//	return;
-	//}
+//* -----------------------------------------------------------
+void setup() {
+	
+	watchdogSetup();
+	Serial.begin(115200);
 
-
-	// print the type and size of the first FAT-type volume
-	//uint32_t volumesize;
-	//Serial.print("\nVolume type is FAT");
-	//Serial.println(volume.fatType(), DEC);
-	//Serial.println();
-
-	//volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
-	//volumesize *= volume.clusterCount();       // we'll have a lot of clusters
-	//volumesize *= 512;                            // SD card blocks are always 512 bytes
-	//Serial.print("Volume size (bytes): ");
-	//Serial.println(volumesize);
-	//Serial.print("Volume size (Kbytes): ");
-	//volumesize /= 1024;
-	//Serial.println(volumesize);
-	//Serial.print("Volume size (Mbytes): ");
-	//volumesize /= 1024;
-	//Serial.println(volumesize);
-
-
-	//Serial.println("\nFiles found on the card (name, date and size in bytes): ");
-	//root.openRoot(volume);
+	// Initialize the rtc object
+	DS3231 * rtc = new DS3231(SDA, SCL);
+	rtc->begin();
+	CLog::setRTC(rtc);
+	
+	
+	if (!SD.begin(pinSDCardChipSelect)) {
+		LOG_SD(F("Card failed"));
+		// don't do anything more:
+		return;
+	}
+	//diagnosticSD(pinSDCardChipSelect);
 
 	//// list all files in the card with date and size
 	SD.ls(LS_R | LS_DATE | LS_SIZE);
 
-
-	//LOG_DEBUG(1);
+	g_pRefrigerator = new CRefrigerator();
 	
-	
+	// The following lines can be uncommented to set the date and time
+	//rtc1->setDOW(MONDAY);     // Set Day-of-Week to SUNDAY
+	//rtc1->setTime(1, 34, 00);     // Set the time to 12:00:00 (24hr format)
+	//rtc1->setDate(29, 2, 2016);   // Set the date to January 1st, 2014
 }
 
 
 //* -----------------------------------------------------------
 void loop() {
-
-	//int sd = 234;
-	//String sdaa;
-	char sdaa = '2';
-	//Serial.println(sdaa);\
-	//cout << "sd:" << sdaa << endl;
-	unsigned int teplota = 20;
-	LOG_DEBUG(LOG_VAR(sdaa));
-	LOG_GRAPH(LOG_VAR(teplota));
-	LOG_SD("toplota1:" << teplota);
+	//int sdaa = 4;
+	//unsigned int teplota = 20;
+	//LOG_DEBUG(LOG_VAR(sdaa));
+	//LOG_GRAPH(LOG_VAR(teplota));
+	//LOG_SD("toplota1:" << teplota);
 	//cout << "ide" << endl;
 
-	//ofstream sdout("novy.txt", ios::app);
-	//const char * constChar = "nejaky testovaci text";
-	//cout << "test cout"; 
-	//sdout << 1 << "test text" << 5 << LOG_VAR(constChar);
-	//sdout.close();
-
-	//LOG_DEBUG(23);
-	//LOG_GRAPH(24);
-	//LOG_SD(25);
-	//LOG(LOG_TYPE::SD1, 4);
-	//print(111);
-	String dataString = "";
-
-	//File dataFile;
-	//if (1) {
-	//	dataFile = SD.open("aaqq.txt", FILE_WRITE);
-	//	if (dataFile) {
-	//		Serial.println("Subor aaqq otvoreny");
-	//	} else {
-	//		Serial.println("Subor aaqq neotvoreny");
-	//	}
-	//}
-	//	dataFile.close();
-
-	/*
 	wdt_reset();
 	g_pRefrigerator->loop();
-	delay(50);
-	*/
-	
-	
-	// Send Day-of-Week
-	//Serial.print(rtc.getDOWStr());
-	//Serial.print(" ");
-
-	// Send date
-	//Serial.print(rtc.getDateStr());
-	//Serial.print(" -- ");
-
-	// Send time
-	//Serial.println(rtc.getTimeStr());
-	
-	//dataString = rtc.getDateStr() + String(" ") + rtc.getTimeStr();
-
-	//File dataFile = SD.open("datalog1.txt", FILE_WRITE);
-
-	//// if the file is available, write to it:
-	//if (dataFile) {
-	//	dataFile.println(dataString);
-	//	dataFile.close();
-	//	// print to the serial port too:
-	//	Serial.println(dataString);
-	//}
-	//// if the file isn't open, pop up an error:
-	//else {
-	//	Serial.println("error opening datalog.txt");
-	//}
-
-	
-
-	// Wait one second before repeating :)
-	delay(2000);
+	delay(50);	
 }
 
 void watchdogSetup(void) {
