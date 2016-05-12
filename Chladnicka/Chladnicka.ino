@@ -61,7 +61,7 @@
 #define BUZZER__ALARM_LOW_TEMP_FREEZER_INTERVAL 30
 
 //* chlad
-#define FRIDGE__LOWER_TEMPERATURE_LIMIT 4
+#define FRIDGE__LOWER_TEMPERATURE_LIMIT 3
 #define FRIDGE__UPPER_TEMPERATURE_LIMIT 7
 #define FREEZER__LOWER_TEMPERATURE_LIMIT -21
 #define FREEZER__UPPER_TEMPERATURE_LIMIT -18
@@ -218,6 +218,10 @@ public:
 
 	unsigned long getStopingTime() {
 		return _earliestStopingTime;
+	}
+
+	void setEarliestStartingTime(unsigned long time) {
+		_earliestStartingTime = time;
 	}
 
 	//* nastavi oneskorenie startu kompresora
@@ -754,9 +758,9 @@ public:
 				_valve.switchValveOnFridge();
 			} else if (incomingByte == 'f') {
 				_valve.switchValveOnFreezer();
-			} //else if (incomingByte == 'z') {
-
-			//}
+			} else if (incomingByte == 'z') {
+				_compressor.setEarliestStartingTime(currentMillis);
+			}
 		}
 
 		//* zistime ci su dvere otvorene dlho (pre alarm)
