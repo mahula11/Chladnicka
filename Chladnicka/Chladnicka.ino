@@ -26,6 +26,8 @@
 #define SENSORS_TABLE_SIZE 16
 #define NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE 10
 #define VALVE__IMPULSE_TIME 100
+#define VENTILATOR__RUNNING_TIME 15
+#define VENTILATOR__OFF_TIME 5
 #else
 //* cas, pocas ktoreho moze nepretrzite bezat kompresor (v milisekundach)
 //* to jest 30 minut = 1800000 milisekund
@@ -60,11 +62,15 @@
 #define BUZZER__ALARM_LOW_TEMP_REFRIG__INTERVAL 20
 #define BUZZER__ALARM_LOW_TEMP_FREEZER_INTERVAL 30
 
+//* ventilacia chladnicky
+#define VENTILATOR__RUNNING_TIME 600000 //* 600000 = 10min
+#define VENTILATOR__OFF_TIME 600000 //* 120000 = 2min, 300000 = 5min
+
 //* chlad
-#define FRIDGE__LOWER_TEMPERATURE_LIMIT 2
-#define FRIDGE__UPPER_TEMPERATURE_LIMIT 6
+#define FRIDGE__LOWER_TEMPERATURE_LIMIT 4
+#define FRIDGE__UPPER_TEMPERATURE_LIMIT 7
 #define FREEZER__LOWER_TEMPERATURE_LIMIT -21
-#define FREEZER__UPPER_TEMPERATURE_LIMIT -18
+#define FREEZER__UPPER_TEMPERATURE_LIMIT -17
 #define FRIDGE__CHECK_TEMPERATURE_INTERVAL 5000
 #define FRIDGE__PRINT_INTERVAL 5000
 
@@ -192,6 +198,8 @@ private:
 	unsigned long _timeStarted = 0;
 	bool _startASAP = false;
 	bool _stopASAP = true;
+	//* po prvom starte kompresoru sa nastavy na true, vtedy vieme, ze compresor uz bol aspon raz zapnuty
+	bool _wasStarted = false;
 
 	//* udrziava cas, kedy sa ma nastartovat compressor (v milisekundach)
 	unsigned long _earliestStartingTime = 0;
@@ -206,6 +214,10 @@ public:
 
 	bool isStarted() {
 		return _started;
+	}
+
+	bool wasStarted() {
+		return _wasStarted;
 	}
 
 	unsigned long getStartedTime() {
@@ -247,7 +259,8 @@ public:
 		CObject::loop(currentMillis);
 		//* umozni zapnut kompresor hned ako sa bude dat
 		if (_startASAP == true) {
-			//* tato podmienka zisti, ci je nastaveny startovaci cas a ci uz je vhodny cas na start (ked je aktualny cas vacsi alebo rovny startovaciemu casu)
+			//* tato podmienka zisti, ci je nastaveny startovaci cas a ci uz je vhodny cas na start 
+			//* (ked je aktualny cas vacsi alebo rovny startovaciemu casu)
 			if (_earliestStartingTime > 0 && currentMillis >= _earliestStartingTime) {
 				Serial.println(F("CCompressor: start"));
 				start();
@@ -286,6 +299,7 @@ protected:
 	void start() {
 		_started = true;
 		_timeStarted = _currentMillis;
+		_wasStarted = true;
 		pinOnHIGH();
 	}
 
@@ -301,42 +315,56 @@ class CVentilator : CObject {
 private:
 	unsigned long _timeStart = 0;
 	unsigned long _timeStop = 0;
+	bool _statusVentilator = false;
 public:
 	CVentilator() : CObject(pinVentilator, OUTPUT) {}
 
-	void startWithDelay(unsigned long delay) {
-		if (getDigitalPinStatus() == false && _timeStart == 0) {
-			_timeStart = _currentMillis + delay;
-			Serial.print(F("Fridge ventilator will start with delay"));
+	void startVentilator() {
+		if (_statusVentilator == false && _timeStart == 0) {
+			_timeStart = _currentMillis;
+			Serial.println(F("Fridge ventilator start"));
 		}
 	}
 
-	void stopWithDelay(unsigned long delay) {
-		if (getDigitalPinStatus() == true && _timeStop == 0) {
-			_timeStop = _currentMillis + delay;
-			Serial.print(F("Fridge ventilator will stop with delay"));
+	void stopVentilator() {
+		if (_statusVentilator == true && _timeStop == 0) {
+			_timeStop = _currentMillis;
+			Serial.println(F("Fridge ventilator stop"));
 		}
 	}
 
-	//bool willBeStarted() {
-	//	return _timeStart ? true : false;
-	//}
-
-	//bool willBeStopped() {
-	//	return _timeStop ? true : false;
-	//}
-
-	void loop(unsigned long currentMillis) {
+	void loop(unsigned long currentMillis, bool temporaryStopVentilator) {
 		CObject::loop(currentMillis);
 
-		if (_timeStart && _currentMillis >= _timeStart) {
+		if (_timeStop && _timeStart) {
+			//Serial.println(F("Fridge ventilator realy stop"));
+			_timeStop = 0;
 			_timeStart = 0;
-			pinOnHIGH();
+			_statusVentilator = false;
+			pinOnLOW();
 		}
 
-		if (_timeStop && _currentMillis >= _timeStop) {
-			_timeStop = 0;
+		if (temporaryStopVentilator) {
+			//Serial.println(F("Temporary turn OFF"));
+			//* vypneme ventilator ked su otvorene dvere alebo ide kompresor pre chladnicku alebo ...
 			pinOnLOW();
+		} else {
+			//* ak aktualny cas je mensi ako cas zapnutia plus cas na bezanie ventilatora, tak zapneme ventilator
+			if (_timeStart && _currentMillis < _timeStart + VENTILATOR__RUNNING_TIME) {
+				//Serial.println(F("Fridge ventilator is ON"));
+				_statusVentilator = true;
+				pinOnHIGH();
+			//* ak je ventilator zapnuty a aktualny cas je uz vacsi ako cas zanutia s casom na bezanie ventilatora, tak ventilator zastavime
+			} else if (_timeStart && _statusVentilator && _currentMillis >= _timeStart + VENTILATOR__RUNNING_TIME) {
+				//Serial.println(F("Fridge ventilator is OFF for short time"));
+				_statusVentilator = false;
+				pinOnLOW();
+			//* pokial je aktualny cas vacsi alebo rovny casu zapnutia plus casu nabeh a plus casu na vypnuty ventilator, 
+			//* tak nastavime cas zapnutia na aktulany cas (v dalsom behu sa ventilator zapne, kedze cas zapnutia s casom behu ventilatora bude mensi ako aktualny cas)
+			} else if (_timeStart && _statusVentilator == false && _currentMillis >= _timeStart + VENTILATOR__RUNNING_TIME + VENTILATOR__OFF_TIME) {
+				//Serial.println(F("Fridge ventilator reset"));
+				_timeStart = _currentMillis;
+			}
 		}
 	}
 };
@@ -411,8 +439,8 @@ public:
 		float val = 0;
 		float min = 9999;
 		float max = -9999;
-		Serial.print(F("Stat: cur: "));
-		Serial.print(_sensorValues[_index - 1]);
+		//Serial.print(F("Stat: cur: "));
+		//Serial.print(_sensorValues[_index - 1]);
 		for (int i = 0; i < NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE; i++) {
 			if (((int)_sensorValues[i]) != 9999) {
 				val += _sensorValues[i];
@@ -423,13 +451,13 @@ public:
 				ii++;
 			}
 		}
-		Serial.print(F(", min: "));
-		Serial.print(min);
-		Serial.print(F(", max: "));
-		Serial.print(max);
+		//Serial.print(F(", min: "));
+		//Serial.print(min);
+		//Serial.print(F(", max: "));
+		//Serial.print(max);
 		val = val / ii;
-		Serial.print(F(", avr: "));
-		Serial.println(val);
+		//Serial.print(F(", avr: "));
+		//Serial.println(val);
 		return val;
 	}
 };
@@ -748,7 +776,7 @@ public:
 		_lights.loop(currentMillis);
 		_buzzer.loop(currentMillis);
 		_valve.loop(currentMillis);
-		_ventilator.loop(currentMillis);
+		_ventilator.loop(currentMillis, _door.isDoorOpen());
 
 		if (Serial.available()) {
 			int incomingByte = Serial.read();
@@ -760,6 +788,10 @@ public:
 				_valve.switchValveOnFreezer();
 			} else if (incomingByte == 'z') {
 				_compressor.setEarliestStartingTime(currentMillis);
+			} else if (incomingByte == 'v') {
+				_ventilator.startVentilator();
+			} else if (incomingByte == 'b') {
+				_ventilator.stopVentilator();
 			}
 		}
 
@@ -790,15 +822,19 @@ public:
 		}
 
 		//* start/stop ventilator		
-		if (_compressor.isStarted()) {
-			if (_valve.isSwitchOnFridge()) {
-				_ventilator.startWithDelay(0000);
+		//* ventilator sa moze zapnut az ked aspon raz bezal kompresor (aby neskresloval teplotu)
+//		if (_compressor.wasStarted()) {
+			//* ventilator sa zapina vtedy, ked kompresor neide pre chladnicku, inac moze byt zapnuty (v zavislosti od casovania a dvier)
+			if (_compressor.isStarted()) {
+				if (_valve.isSwitchOnFridge()) {
+					_ventilator.stopVentilator();
+				} else {
+					_ventilator.startVentilator();
+				}
 			} else {
-				_ventilator.stopWithDelay(0000);
+				_ventilator.startVentilator();
 			}
-		} else {
-			_ventilator.stopWithDelay(0000);;
-		}
+//		}
 
 		//* 5°C - pre chladnicku
 		//* -18 * pre mraznicku
@@ -899,6 +935,10 @@ public:
 };
 
 CRefrigerator * g_pRefrigerator;
+
+//* pre testnutie kompilacie, kolko pamate zabera projekt, ked je trieda CRefrigerator vytvorena na halde
+//* toto testnutie ukaze cislo, kolko by to mohlo zaberat v pamati, ked je trieda CRefrigerator vytvorena na heape
+//CRefrigerator ref;
 
 //* -----------------------------------------------------------
 void setup() {
