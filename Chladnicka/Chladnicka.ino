@@ -1,4 +1,5 @@
 #include <avr/wdt.h>
+
 //#include "types.h"
 
 //typedef unsigned long ulong;
@@ -122,9 +123,13 @@ public:
 		pin2OnLOW();
 	};
 
-	void pinWrite(bool value) {
+	void pinWriteD(bool value) {
 		//_value = value;
 		digitalWrite(_pin, value);
+	}
+
+	void pinWriteA(int value) {
+		analogWrite(_pin, value);
 	}
 
 	void pin2Write(bool value) {
@@ -416,11 +421,11 @@ public:
 		CObject::loop(currentMillis);
 		if (_isAlarm == true) {
 			if (_alarmStart + LIGHTS__ALARM_INTERVAL <= currentMillis) {
-				pinWrite(!getDigitalPinStatus());
+				pinWriteD(!getDigitalPinStatus());
 				_isAlarm = false;
 			}
 		} else {
-			pinWrite(_switchLights);
+			pinWriteD(_switchLights);
 		}
 	}
 };
@@ -612,6 +617,11 @@ private:
 public:
 	CBuzzer() : CObject(pinBuzzer, OUTPUT) {}
 
+	void beep() {
+		Serial.println(F("beep"));
+		tone(pinBuzzer, 200, 100);
+	}
+
 	//* nastavi priznak zapnutia pipaca
 	//* dalsim prechodom cez loop() sa pipac zapne/vypne
 	void setAlarm(int alarmType) {
@@ -642,11 +652,11 @@ public:
 		CObject::loop(currentMillis);
 		if (_isAlarm == true) {
 			if (_alarmStart + _beepInterval <= currentMillis) {
-				pinWrite(!getDigitalPinStatus());
+				pinWriteD(!getDigitalPinStatus());
 				_isAlarm = false;
 			}
 		} else {
-			pinWrite(false);
+			pinWriteD(false);
 		}
 	}
 };
@@ -778,6 +788,7 @@ public:
 		_freezerLowerTemperatureLimit = FREEZER__LOWER_TEMPERATURE_LIMIT;
 		//_valve.switchValveOnFridge();
 		_compressor.setDelayForStart();
+		_buzzer.beep();
 	}
 
 	void loop() {
