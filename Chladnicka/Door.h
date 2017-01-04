@@ -19,7 +19,7 @@ private:
 	bool _isAlarm = false;
 
 public:
-	CDoor() : CObject(Config::pinDoorsSwitch, INPUT) {}
+	CDoor() : CObject(g_pConfig->getPinDoorsSwitch(), INPUT) {}
 
 	bool isDoorOpen();
 	bool isAlarm();

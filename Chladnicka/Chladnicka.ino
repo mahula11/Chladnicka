@@ -1,7 +1,6 @@
 #include <avr/wdt.h>
 
-
-#include "Configuration.h"
+#include "Config.h"
 #include "Compressor.h"
 #include "Ventilator.h"
 #include "Lights.h"
@@ -10,7 +9,7 @@
 #include "Buzzer.h"
 #include "SolenoidValve.h"
 #include "Door.h"
-#include "Refrigerator.h"
+#include "Refrigerator.h" 
 
 
 //* pre testnutie kompilacie, kolko pamate zabera projekt, ked je trieda CRefrigerator vytvorena na halde
@@ -19,6 +18,7 @@
 
 //* -----------------------------------------------------------
 void setup() {
+	new Config();
 	watchdogSetup();
 	Serial.begin(115200);
 	new CRefrigerator();

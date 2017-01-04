@@ -4,6 +4,26 @@
 
 #include "TempSensor.h"
 
+CTempSensor::CTempSensor(byte pin, float r1) : CObject(pin, INPUT), _r1(r1) {
+	_table = new stSensorTempTable[g_pConfig->getSensorsTableSize()];
+	_table[0] = { -30, 175199.63 };
+	_table[1] = { -25, 129286.93 };
+	_table[2] = { -20, 96358.16 };
+	_table[3] = { -15, 72500.36 };
+	_table[4] = { -10, 55045.94 };
+	_table[5] = {  -5, 42156.97 };
+	_table[6] = {   0, 32554.20 };
+	_table[7] = {   5, 25338.55 };
+	_table[8] = {  10, 19872.17 };
+	_table[9] = {  15, 15698.46 };
+	_table[10] = { 20, 12487.74 };
+	_table[11] = { 25, 10000.00 };
+	_table[12] = { 30, 8059.08 };
+	_table[13] = { 35, 6534.72 };
+	_table[14] = { 40, 5329.87 };
+	_table[15] = { 45, 4371.72 };
+}
+
 float CTempSensor::getSensorCelsius() {
 	float r = getSensorImpedance();
 	if (r == -1) {
@@ -12,7 +32,7 @@ float CTempSensor::getSensorCelsius() {
 	}
 
 	int indexOfArr = -1;
-	for (int i = 0; i < Config::SENSORS_TABLE_SIZE - 1; i++) {
+	for (int i = 0; i < g_pConfig->getSensorsTableSize() - 1; i++) {
 		if ((_table[i + 1].impedance <= r) && (r <= _table[i].impedance)) {
 			indexOfArr = i;
 			break;

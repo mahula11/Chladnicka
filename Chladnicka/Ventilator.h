@@ -15,11 +15,11 @@ class CVentilator : CObject {
 private:
 	unsigned long _timeStart = 0;
 	unsigned long _timeStop = 0;
-	unsigned long _runnigTime = Config::VENTILATOR__RUNNING_TIME;
+	unsigned long _runnigTime = g_pConfig->getVentilatorRunningTime();
 	bool _statusVentilator = false;
 	bool _wasTemporaryStoped = false;
 public:
-	CVentilator() : CObject(Config::pinVentilator, OUTPUT) {}
+	CVentilator() : CObject(g_pConfig->getPinVentilator(), OUTPUT) {}
 
 	void startVentilator();
 	void stopVentilator();

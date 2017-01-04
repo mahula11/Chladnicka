@@ -26,7 +26,7 @@ void CCompressor::setEarliestStartingTime(unsigned long time) {
 //* nastavi oneskorenie startu kompresora
 void CCompressor::setDelayForStart() {
 	if (_earliestStartingTime == 0) {
-		_earliestStartingTime = millis() + Config::COMPRESSOR__DELAY_FOR_START;
+		_earliestStartingTime = millis() + g_pConfig->getCompressorDelayForStart(); //Config::COMPRESSOR__DELAY_FOR_START;
 		Serial.print(F("setDelayForStart(): set new _earliestStartingTime: "));
 		Serial.println(_earliestStartingTime);
 	}
@@ -52,7 +52,7 @@ void CCompressor::loop(unsigned long currentMillis) {
 			Serial.println(F("CCompressor: start"));
 			start();
 			_earliestStartingTime = 0;
-			_earliestStopingTime = currentMillis + Config::COMPRESSOR__DELAY_FOR_STOP;
+			_earliestStopingTime = currentMillis + g_pConfig->getCompressorDelayForStop(); // Config::COMPRESSOR__DELAY_FOR_STOP;
 			Serial.print(F("CCompressor: _earliestStopingTime: "));
 			Serial.println(_earliestStopingTime);
 			_startASAP = false;
@@ -71,7 +71,7 @@ void CCompressor::loop(unsigned long currentMillis) {
 
 	//* zabezpeci aby kompresor nebezal dlhsie ako povoleny cas, aby nedoslo k poskodeniu kompresoru
 	if (_started == true) {
-		if (_timeStarted > 0 && ((_timeStarted + Config::COMPRESSOR__LONGEST_RUNNING_TIME) <= currentMillis)) {
+		if (_timeStarted > 0 && ((_timeStarted + g_pConfig->getCompressorLongestRunningTime()/*Config::COMPRESSOR__LONGEST_RUNNING_TIME*/) <= currentMillis)) {
 			Serial.println(F("CCompressor: bezi prilis dlho, vypiname ho"));
 			stop();
 			setDelayForStart();

@@ -19,23 +19,23 @@ private:
 		float impedance;
 	};
 
-	stSensorTempTable _table[Config::SENSORS_TABLE_SIZE] = {
-		{ -30, 175199.63 },		//* 0
-		{ -25, 129286.93 },		//* 1
-		{ -20, 96358.16 },		//* 2
-		{ -15, 72500.36 },		//* 3
-		{ -10, 55045.94 },		//* 4
-		{ -5, 42156.97 },		//* 5
-		{ 0, 32554.20 },		//* 6
-		{ 5, 25338.55 },		//* 7
-		{ 10, 19872.17 },		//* 8
-		{ 15, 15698.46 },		//* 9
-		{ 20, 12487.74 },		//* 10
-		{ 25, 10000.00 },		//* 11
-		{ 30, 8059.08 },		//* 12
-		{ 35, 6534.72 },		//* 13
-		{ 40, 5329.87 },		//* 14
-		{ 45, 4371.72 } };		//* 15
+	stSensorTempTable * _table;
+		//{ -30, 175199.63 },		//* 0
+		//{ -25, 129286.93 },		//* 1
+		//{ -20, 96358.16 },		//* 2
+		//{ -15, 72500.36 },		//* 3
+		//{ -10, 55045.94 },		//* 4
+		//{ -5, 42156.97 },		//* 5
+		//{ 0, 32554.20 },		//* 6
+		//{ 5, 25338.55 },		//* 7
+		//{ 10, 19872.17 },		//* 8
+		//{ 15, 15698.46 },		//* 9
+		//{ 20, 12487.74 },		//* 10
+		//{ 25, 10000.00 },		//* 11
+		//{ 30, 8059.08 },		//* 12
+		//{ 35, 6534.72 },		//* 13
+		//{ 40, 5329.87 },		//* 14
+		//{ 45, 4371.72 } };		//* 15
 
 	//* 19000 -
 	//* 20000 - 10
@@ -56,7 +56,7 @@ private:
 	CArithAverage _arithAverage;
 
 public:
-	CTempSensor(byte pin, float r1) : CObject(pin, INPUT), _r1(r1) {}
+	CTempSensor(byte pin, float r1);
 
 	//*  _r1  _rSensor  vypocitana hodnota
 	//* 80000  129286 -> 129514.07    -25°C
@@ -88,13 +88,13 @@ private:
 class CTempSensorFridge : public CTempSensor {
 private:
 public:
-	CTempSensorFridge() : CTempSensor(Config::pinSensorFridge, 80000) {}
+	CTempSensorFridge() : CTempSensor(g_pConfig->getPinTemperatureFridge(), 80000) {}
 };
 
 class CTempSensorFreezer : public CTempSensor {
 private:
 public:
-	CTempSensorFreezer() : CTempSensor(Config::pinSensorFreezer, 80000) {}
+	CTempSensorFreezer() : CTempSensor(g_pConfig->getPinTemperatureFreezer(), 80000) {}
 };
 
 

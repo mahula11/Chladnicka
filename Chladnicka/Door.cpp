@@ -34,7 +34,7 @@ void CDoor::loop(unsigned long currentMillis) {
 	}
 
 	//* set alarm flag, while door is open more than time in DOORS__ALARM_START
-	if (_isDoorOpen && _openDoorTime + Config::DOORS__ALARM_START <= currentMillis) {
+	if (_isDoorOpen && _openDoorTime + g_pConfig->getDoorsAlarmStart()/*Config::DOORS__ALARM_START*/ <= currentMillis) {
 		_isAlarm = true;
 	} else {
 		_isAlarm = false;

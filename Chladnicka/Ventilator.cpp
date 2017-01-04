@@ -8,7 +8,7 @@ void CVentilator::startVentilator() {
 	if (_statusVentilator == false && _timeStart == 0) {
 		_timeStart = _currentMillis;
 		Serial.println(F("Fridge ventilator start"));
-		_runnigTime = Config::VENTILATOR__RUNNING_TIME;
+		_runnigTime = g_pConfig->getVentilatorRunningTime(); // Config::VENTILATOR__RUNNING_TIME;
 	}
 }
 
@@ -44,13 +44,13 @@ void CVentilator::loop(unsigned long currentMillis, bool temporaryStopVentilator
 		}
 	} else if (_wasTemporaryStoped && (_statusVentilator == false)) {
 		_wasTemporaryStoped = false;
-		_runnigTime = Config::VENTILATOR__RUNNIG_TIME_AFTER_OPENED_DOOR;
+		_runnigTime = g_pConfig->getVentilatorRunningTimeAfterOpenedDoor(); //Config::VENTILATOR__RUNNIG_TIME_AFTER_OPENED_DOOR;
 		_timeStart = _currentMillis;
 		//Serial.println(F("Fridge ventilator start after opened door"));
 	} else {
 		if (_wasTemporaryStoped) {
 			_wasTemporaryStoped = false;
-			_runnigTime += Config::VENTILATOR__RUNNIG_TIME_AFTER_OPENED_DOOR;
+			_runnigTime += g_pConfig->getVentilatorRunningTimeAfterOpenedDoor(); //Config::VENTILATOR__RUNNIG_TIME_AFTER_OPENED_DOOR;
 			Serial.println(F("Ventilator - runnig time was increased"));
 		}
 		//* ak aktualny cas je mensi ako cas zapnutia plus cas na bezanie ventilatora, tak zapneme ventilator

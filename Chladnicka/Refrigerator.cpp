@@ -8,9 +8,12 @@ CRefrigerator * CRefrigerator::_pRefrigerator = nullptr;
 
 CRefrigerator::CRefrigerator() {
 	_pRefrigerator = this;
+	_checkTemperatureInterval = g_pConfig->getCheckTemperatureInterval();
+	_checkVentilatorInterval = g_pConfig->getCheckVentilatorInterval();
+	_printInterval = g_pConfig->getPrintInterval();
 	//* protect compressor against repeated starts
-	_fridgeLowerTemperatureLimit = Config::FRIDGE__LOWER_TEMPERATURE_LIMIT;
-	_freezerLowerTemperatureLimit = Config::FREEZER__LOWER_TEMPERATURE_LIMIT;
+	_fridgeLowerTemperatureLimit = g_pConfig->getFridgeLowerTemperatureLimit(); //Config::FRIDGE__LOWER_TEMPERATURE_LIMIT;
+	_freezerLowerTemperatureLimit = g_pConfig->getFreezerLowerTemperatureLimit(); // Config::FREEZER__LOWER_TEMPERATURE_LIMIT;
 	//_valve.switchValveOnFridge();
 	_compressor.setDelayForStart();
 	_buzzer.beep();
@@ -18,7 +21,7 @@ CRefrigerator::CRefrigerator() {
 
 CRefrigerator * CRefrigerator::getInstance() {
 	if (_pRefrigerator == nullptr) {
-		new CRefrigerator();
+		_pRefrigerator = new CRefrigerator();
 	} 
 	return _pRefrigerator;
 }
@@ -62,7 +65,7 @@ void CRefrigerator::loop() {
 			Serial.println(F("Door is in alarm!"));
 		}
 		_lights.setAlarm();
-		_buzzer.setAlarm(Config::BUZZER__ALARM_OPEN_DOOR);
+		_buzzer.setAlarm(AlarmType::openDoor); // Config::BUZZER__ALARM_OPEN_DOOR);
 	} else {
 		_lights.resetAlarm();
 		_buzzer.resetAlarm();
@@ -76,7 +79,7 @@ void CRefrigerator::loop() {
 	//* start/stop ventilator, kontrolujeme v intervale FRIDGE__CHECK_VENTILATOR_INTERVAL
 	if (currentMillis >= _checkVentilatorInterval) {
 		Serial.println(F("Check ventilator"));
-		_checkVentilatorInterval = currentMillis + Config::FRIDGE__CHECK_VENTILATOR_INTERVAL;
+		_checkVentilatorInterval = currentMillis + g_pConfig->getFridgeCheckVentilatorInterval(); // Config::FRIDGE__CHECK_VENTILATOR_INTERVAL;
 
 		//* pokial je startnuty kompresor a ventil je prepnuty na chladnicku, tak nastavime priznak, 
 		//* ze kompresor isiel pre chladnicku, aby sme potom vedeli zapnut ventilator.
@@ -97,15 +100,20 @@ void CRefrigerator::loop() {
 
 	//* kontrolujeme teplotu a ovladame v urceny interval (kazdych 5 sekund)
 	if (currentMillis >= _checkTemperatureInterval) {
-		_checkTemperatureInterval = currentMillis + Config::FRIDGE__CHECK_TEMPERATURE_INTERVAL;
+		_checkTemperatureInterval = currentMillis + g_pConfig->getFridgeCheckTemperatureInterval(); // Config::FRIDGE__CHECK_TEMPERATURE_INTERVAL;
 		_temperatureFridge = _sensorFridge.getSensorCelsius();
 		_temperatureFreezer = _sensorFreezer.getSensorCelsius();
 	}
 
+	float fridgeUpperTemperatureLimit = g_pConfig->getFridgeUpperTemperatureLimit();
+	float fridgeLowerTemperatureLimit = g_pConfig->getFridgeLowerTemperatureLimit();
+	float freezerLowerTemperatureLimit = g_pConfig->getFreezerLowerTemperatureLimit();
+	float freezerUpperTemperatureLimit = g_pConfig->getFreezerUpperTemperatureLimit();
+
 	//* 5°C - pre chladnicku
 	//* -18 * pre mraznicku
 	if (_fridgeLowerTemperatureLimit < _temperatureFridge) {
-		_fridgeLowerTemperatureLimit = Config::FRIDGE__LOWER_TEMPERATURE_LIMIT;
+		_fridgeLowerTemperatureLimit = fridgeLowerTemperatureLimit; // Config::FRIDGE__LOWER_TEMPERATURE_LIMIT;
 		_tryPutDownLimitsBeforeStop = false;
 		if (_compressor.isStarted()) {
 			_valve.switchValveOnFridge();
@@ -117,8 +125,8 @@ void CRefrigerator::loop() {
 			//Serial.println(_compressor.getStartingTime());
 		}
 	} else if (_freezerLowerTemperatureLimit < _temperatureFreezer) {
-		_fridgeLowerTemperatureLimit = Config::FRIDGE__UPPER_TEMPERATURE_LIMIT;
-		_freezerLowerTemperatureLimit = Config::FREEZER__LOWER_TEMPERATURE_LIMIT;
+		_fridgeLowerTemperatureLimit = fridgeUpperTemperatureLimit; // Config::FRIDGE__UPPER_TEMPERATURE_LIMIT;
+		_freezerLowerTemperatureLimit = freezerLowerTemperatureLimit; // Config::FREEZER__LOWER_TEMPERATURE_LIMIT;
 		_tryPutDownLimitsBeforeStop = false;
 		if (_compressor.isStarted()) {
 			_valve.switchValveOnFreezer();
@@ -130,12 +138,12 @@ void CRefrigerator::loop() {
 			//Serial.println(_compressor.getStartingTime());
 		}
 	} else {
-		_fridgeLowerTemperatureLimit = Config::FRIDGE__UPPER_TEMPERATURE_LIMIT;
-		_freezerLowerTemperatureLimit = Config::FREEZER__UPPER_TEMPERATURE_LIMIT;
+		_fridgeLowerTemperatureLimit = fridgeUpperTemperatureLimit; // Config::FRIDGE__UPPER_TEMPERATURE_LIMIT;
+		_freezerLowerTemperatureLimit = freezerUpperTemperatureLimit; // Config::FREEZER__UPPER_TEMPERATURE_LIMIT;
 		if (_compressor.isStarted()) {
 			if (_tryPutDownLimitsBeforeStop == false) {
-				_fridgeLowerTemperatureLimit = Config::FRIDGE__UPPER_TEMPERATURE_LIMIT - ((float)(Config::FRIDGE__UPPER_TEMPERATURE_LIMIT - Config::FRIDGE__LOWER_TEMPERATURE_LIMIT) / (float)2) - 1;
-				_freezerLowerTemperatureLimit = Config::FREEZER__UPPER_TEMPERATURE_LIMIT - ((float)(Config::FREEZER__UPPER_TEMPERATURE_LIMIT - Config::FREEZER__LOWER_TEMPERATURE_LIMIT) / (float)2) - 1;
+				_fridgeLowerTemperatureLimit = fridgeUpperTemperatureLimit/*Config::FRIDGE__UPPER_TEMPERATURE_LIMIT*/ - ((float)(fridgeUpperTemperatureLimit/*Config::FRIDGE__UPPER_TEMPERATURE_LIMIT*/ - fridgeLowerTemperatureLimit/*Config::FRIDGE__LOWER_TEMPERATURE_LIMIT*/) / (float)2) - 1;
+				_freezerLowerTemperatureLimit = freezerUpperTemperatureLimit/*Config::FREEZER__UPPER_TEMPERATURE_LIMIT*/ - ((float)(freezerUpperTemperatureLimit/*Config::FREEZER__UPPER_TEMPERATURE_LIMIT*/ - freezerLowerTemperatureLimit/*Config::FREEZER__LOWER_TEMPERATURE_LIMIT*/) / (float)2) - 1;
 				_tryPutDownLimitsBeforeStop = true;
 			} else {
 				_compressor.stopASAP();
@@ -195,6 +203,6 @@ void CRefrigerator::loop() {
 
 	//* set timers
 	if (currentMillis >= _printInterval) {
-		_printInterval = currentMillis + Config::FRIDGE__PRINT_INTERVAL;
+		_printInterval = currentMillis + g_pConfig->getFridgePrintInterval();
 	}
 }

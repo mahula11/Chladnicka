@@ -10,10 +10,12 @@
 #endif
 
 #include "Object.h"
+#include "Config.h"
 
 class CArithAverage {
 private:
-	float _sensorValues[Config::NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE];
+	//float _sensorValues[Config::Constants::NUMBER_OF_SENSOR_VALUES_FOR_ARITH_AVERAGE];
+	float * _sensorValues; // [Config::getInstance()->getNumberOfSensorValuesForArithAverage()];
 	byte _index = 0;
 public:
 	CArithAverage();

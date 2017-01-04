@@ -6,25 +6,25 @@
 
 void CBuzzer::beep() {
 	Serial.println(F("beep"));
-	tone(Config::pinBuzzer, 200, 100);
+	tone(g_pConfig->getPinBuzzer()/*Config::pinBuzzer*/, 200, 100);
 }
 
 //* nastavi priznak zapnutia pipaca
 //* dalsim prechodom cez loop() sa pipac zapne/vypne
-void CBuzzer::setAlarm(int alarmType) {
+void CBuzzer::setAlarm(AlarmType alarmType) {
 	//* pokial nie je alarm, tak ho nastavime aj s casom zacatia a typom alarmu
 	if (_isAlarm == false) {
 		_isAlarm = true;
 		_alarmStart = _currentMillis;
 		switch (alarmType) {
-			case Config::BUZZER__ALARM_OPEN_DOOR:
-				_beepInterval = Config::BUZZER__ALARM_OPEN_DOOR__INTERVAL;
+			case openDoor/*Config::BUZZER__ALARM_OPEN_DOOR*/:
+				_beepInterval = g_pConfig->getBuzzerAlarmOpenDoorInterval(); // Config::BUZZER__ALARM_OPEN_DOOR__INTERVAL;
 				break;
-			case Config::BUZZER__ALARM_LOW_TEMP_REFRIG:
-				_beepInterval = Config::BUZZER__ALARM_LOW_TEMP_REFRIG__INTERVAL;
+			case lowTempRefrig/*Config::BUZZER__ALARM_LOW_TEMP_REFRIG*/:
+				_beepInterval = g_pConfig->getBuzzerAlarmLowTempRefrigInterval(); // Config::BUZZER__ALARM_LOW_TEMP_REFRIG__INTERVAL;
 				break;
-			case Config::BUZZER__ALARM_LOW_TEMP_FREEZER:
-				_beepInterval = Config::BUZZER__ALARM_LOW_TEMP_FREEZER_INTERVAL;
+			case lowTempFreezer/*Config::BUZZER__ALARM_LOW_TEMP_FREEZER*/:
+				_beepInterval = g_pConfig->getBuzzerAlarmLowTempFreezerInterval(); //Config::BUZZER__ALARM_LOW_TEMP_FREEZER_INTERVAL;
 				break;
 		}
 	}

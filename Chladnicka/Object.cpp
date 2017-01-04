@@ -1,12 +1,17 @@
 #include "Object.h"
 
+CObject::CObject() {
+	//_pConfig = Config::getInstance();
+}
 
-CObject::CObject(byte pin, byte mode) : _pin(pin), _mode(mode) {
+CObject::CObject(const byte pin, byte mode) : _pin(pin), _mode(mode) {
+	CObject();
 	pinMode(pin, mode);
 	pinOnLOW();
 };
 
-CObject::CObject(byte pin, byte pin2, byte mode) : _pin(pin), _pin2(pin2), _mode(mode) {
+CObject::CObject(const byte pin, const byte pin2, byte mode) : _pin(pin), _pin2(pin2), _mode(mode) {
+	CObject();
 	pinMode(pin, mode);
 	pinMode(pin2, mode);
 	pinOnLOW();

@@ -4,7 +4,7 @@
 
 #include "SolenoidValve.h"
 
-CSolenoidValve::CSolenoidValve() : CObject(Config::pinSolenoidValveFridge, Config::pinSolenoidValveFreezer, OUTPUT) {
+CSolenoidValve::CSolenoidValve() : CObject(g_pConfig->getPinSolenoidValveFridge()/*Config::pinSolenoidValveFridge*/, g_pConfig->getPinSolenoidValveFreezer()/*Config::pinSolenoidValveFreezer*/, OUTPUT) {
 	switchValveOnFridge();
 }
 
@@ -35,7 +35,7 @@ bool CSolenoidValve::isSwitchOnFridge() {
 
 void CSolenoidValve::loop(unsigned long currentMillis) {
 	CObject::loop(currentMillis);
-	if (_switched != -1 && currentMillis >= _switched + Config::VALVE__IMPULSE_TIME) {
+	if (_switched != -1 && currentMillis >= _switched + g_pConfig->getValveImpulseTime()/*Config::VALVE__IMPULSE_TIME*/) {
 		//* ked ubehne stanoveny cas treba vypnut zopnutie ventilu
 		//* ventil sa prepina polaritou (jednosmernym napatim) a staci ho prepnut len impulzom (potom treba vypnut prud do ventilu)
 		pinOnLOW();

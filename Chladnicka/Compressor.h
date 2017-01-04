@@ -27,7 +27,7 @@ private:
 	//unsigned long _delayForStart = 0;
 
 public:
-	CCompressor() : CObject(Config::pinCompressor, OUTPUT) {
+	CCompressor() : CObject(g_pConfig->getPinCompressor(), OUTPUT) {
 
 	}
 

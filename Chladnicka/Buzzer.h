@@ -11,6 +11,12 @@
 
 #include "Object.h"
 
+enum AlarmType {
+	openDoor,
+	lowTempRefrig,
+	lowTempFreezer
+};
+
 class CBuzzer : CObject {
 private:
 	bool _isAlarm = false;
@@ -18,12 +24,12 @@ private:
 	unsigned long _beepInterval = 0;
 
 public:
-	CBuzzer() : CObject(Config::pinBuzzer, OUTPUT) {}
+	CBuzzer() : CObject(g_pConfig->getPinBuzzer(), OUTPUT) {}
 
 	void beep();
 	//* nastavi priznak zapnutia pipaca
 	//* dalsim prechodom cez loop() sa pipac zapne/vypne
-	void setAlarm(int alarmType);
+	void setAlarm(AlarmType alarmType);
 	//* nastavi priznak zrusenia alarmu
 	void resetAlarm();
 	void loop(unsigned long currentMillis);

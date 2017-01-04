@@ -3,7 +3,9 @@
 
 
 #include <arduino.h>
-#include "Configuration.h"
+#include "Config.h"
+
+//Config * g_pConfig;
 
 class CObject {
 private:
@@ -12,12 +14,14 @@ private:
 	byte _mode;
 
 protected:
+	//Config * _pConfig;
 	unsigned long _currentMillis;
 	void loop(unsigned long currentMillis);
 
 public:
-	CObject(byte pin, byte mode);
-	CObject(byte pin, byte pin2, byte mode);
+	CObject();
+	CObject(const byte pin, byte mode);
+	CObject(const byte pin, const byte pin2, byte mode);
 	~CObject();
 
 	void pinWriteD(bool value);

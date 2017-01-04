@@ -9,6 +9,7 @@
 	#include "WProgram.h"
 #endif
 
+#include "Config.h"
 #include "Compressor.h"
 #include "Ventilator.h"
 #include "Lights.h"
@@ -29,6 +30,7 @@ private:
 	CBuzzer _buzzer;
 	CSolenoidValve _valve;
 	CDoor _door;
+	//Config * _pConfig;
 
 	float _fridgeLowerTemperatureLimit = 0;
 	float _freezerLowerTemperatureLimit = 0;
@@ -38,9 +40,9 @@ private:
 
 	bool _tryPutDownLimitsBeforeStop = false;
 
-	unsigned long _checkTemperatureInterval = Config::FRIDGE__CHECK_TEMPERATURE_INTERVAL;
-	unsigned long _checkVentilatorInterval = Config::FRIDGE__CHECK_VENTILATOR_INTERVAL;
-	unsigned long _printInterval = Config::FRIDGE__PRINT_INTERVAL;
+	unsigned long _checkTemperatureInterval; // = Config::FRIDGE__CHECK_TEMPERATURE_INTERVAL;
+	unsigned long _checkVentilatorInterval; // = Config::FRIDGE__CHECK_VENTILATOR_INTERVAL;
+	unsigned long _printInterval; // = Config::FRIDGE__PRINT_INTERVAL;
 
 	static CRefrigerator * _pRefrigerator;
 

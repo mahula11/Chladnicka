@@ -18,7 +18,7 @@ private:
 	unsigned long _alarmStart = 0;
 
 public:
-	CLights() : CObject(Config::pinLights, OUTPUT) {}
+	CLights() : CObject(g_pConfig->getPinLights(), OUTPUT) {}
 
 	//* nastavi priznak zapnutia alebo vypnutia osvetlenia
 	void switchLights(bool state);
