@@ -9,7 +9,6 @@
 	#include "WProgram.h"
 #endif
 
-
 class Config {
 private:
 	class Constants {
@@ -79,22 +78,53 @@ private:
 		static const int pinSensorFreezer = A4;
 	};
 
-private:
-	//static Config * s_pConfig;
+	void loadFromConstants();
+
+	byte _pinCompresor;
+	byte _pinVentilator;
+	byte _pinBuzzer;
+	byte _pinLights;
+	byte _pinSolenoidValveFridge;
+	byte _pinSolenoidValveFreezer;
+	byte _pinDoorSwitch;
+	byte _pinTemperatureFridge;
+	byte _pinTemperatureFreezer;
+	unsigned long _ventilatorRunningTime;
+	unsigned long _ventilatorRunningTimeAfterOpenedDoor;
+	unsigned long _numberOfSensorValuesForArithAverage;
+	unsigned long _sensorsTableSize;
+	unsigned long _checkTemperatureInterval;
+	unsigned long _checkVentilatorInterval;
+	unsigned long _printInterval;
+	float _fridgeLowerTemperatureLimit;
+	float _freezerLowerTemperatureLimit;
+	unsigned long _fridgeCheckVentilatorInterval;
+	unsigned long _fridgeCheckTemperatureInterval;
+	float _fridgeUpperTemperatureLimit;
+	float _freezerUpperTemperatureLimit;
+	unsigned long _fridgePrintInterval;
+	unsigned long _buzzerAlarmOpenDoorInterval;
+	unsigned long _buzzerAlarmLowTempRefrigInterval;
+	unsigned long _buzzerAlarmLowTempFreezerInterval;
+	unsigned long _compressorDelayForStart;
+	unsigned long _compressorDelayForStop;
+	unsigned long _compressorLongestRunningTime;
+	unsigned long _doorsAlarmStart;
+	unsigned long _lightAlarmInterval;
+	unsigned long _valveImpulseTime;
+
 public:
 	Config();
 
-	//static Config * getInstance();
-	
-	const byte getPinCompressor();
-	const byte getPinVentilator();
-	const byte getPinBuzzer();
-	const byte getPinLights();
-	const byte getPinSolenoidValveFridge();
-	const byte getPinSolenoidValveFreezer();
-	const int getPinDoorsSwitch();
-	const int getPinTemperatureFridge();
-	const int getPinTemperatureFreezer();
+	byte getPinCompressor();
+	byte getPinVentilator();
+	byte getPinBuzzer();
+	byte getPinLights();
+	byte getPinSolenoidValveFridge();
+	byte getPinSolenoidValveFreezer();
+	byte getPinDoorsSwitch();
+	byte getPinTemperatureFridge();
+	byte getPinTemperatureFreezer();
 	
 	unsigned long getVentilatorRunningTime(); //Config::VENTILATOR__RUNNING_TIME;
 	unsigned long getVentilatorRunningTimeAfterOpenedDoor(); //Config::VENTILATOR__RUNNIG_TIME_AFTER_OPENED_DOOR
@@ -124,7 +154,7 @@ public:
 };
 
 //extern const Config & g_config = Config();
-Config * g_pConfig;
+extern Config * g_pConfig;
 
 #endif
 
