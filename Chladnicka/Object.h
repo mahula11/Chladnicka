@@ -19,7 +19,6 @@ protected:
 	void loop(unsigned long currentMillis);
 
 public:
-	CObject();
 	CObject(const byte pin, byte mode);
 	CObject(const byte pin, const byte pin2, byte mode);
 	~CObject();
