@@ -76,6 +76,9 @@ private:
 		static const int pinDoorsSwitch = 5;
 		static const int pinSensorFridge = A5;
 		static const int pinSensorFreezer = A4;
+
+		//* po uplinuti casu bude chladnicka vzdy resetnuta
+		static const unsigned long forcedResetTime = 14000000;
 	};
 
 	void loadFromConstants();
@@ -89,6 +92,7 @@ private:
 	byte _pinDoorSwitch;
 	byte _pinTemperatureFridge;
 	byte _pinTemperatureFreezer;
+	unsigned long _forcedResetTime;
 	unsigned long _ventilatorRunningTime;
 	unsigned long _ventilatorRunningTimeAfterOpenedDoor;
 	unsigned long _numberOfSensorValuesForArithAverage;
@@ -125,6 +129,7 @@ public:
 	byte getPinDoorsSwitch();
 	byte getPinTemperatureFridge();
 	byte getPinTemperatureFreezer();
+	unsigned long getForcedResetTime();
 	
 	unsigned long getVentilatorRunningTime(); //Config::VENTILATOR__RUNNING_TIME;
 	unsigned long getVentilatorRunningTimeAfterOpenedDoor(); //Config::VENTILATOR__RUNNIG_TIME_AFTER_OPENED_DOOR

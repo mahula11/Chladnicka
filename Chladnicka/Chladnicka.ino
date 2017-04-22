@@ -14,6 +14,7 @@
 
 //* pre testnutie kompilacie, kolko pamate zabera projekt, ked je trieda CRefrigerator vytvorena na halde
 //* toto testnutie ukaze cislo, kolko by to mohlo zaberat v pamati, ked je trieda CRefrigerator vytvorena na heape
+//Config conf;
 //CRefrigerator ref;
 
 //* -----------------------------------------------------------
@@ -26,7 +27,13 @@ void setup() {
 
 //* -----------------------------------------------------------
 void loop() {
-	wdt_reset();
+	//* vynuteny restart chladnicky
+	//* pokial je millis() mensi ako nastaveny cas (4 hodiny), dovtedy sa watchdog bude resetovat. 
+	//* pokial tento cas presiahne, tak nedovolime reset watchdogu a tym bude vynuteny reset procesoru
+	if (millis() < g_pConfig->getForcedResetTime()) {
+		//* resetuje watchdog
+		wdt_reset();
+	}
 	CRefrigerator::getInstance()->loop();
 	delay(50);
 }

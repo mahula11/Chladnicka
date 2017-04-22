@@ -47,6 +47,7 @@ void Config::loadFromConstants() {
 	_doorsAlarmStart = Constants::DOORS__ALARM_START;
 	_lightAlarmInterval = Constants::LIGHTS__ALARM_INTERVAL;
 	_valveImpulseTime = Constants::VALVE__IMPULSE_TIME;
+	_forcedResetTime = Constants::forcedResetTime;
 }
 
 //Config * Config::getInstance() {
@@ -55,6 +56,10 @@ void Config::loadFromConstants() {
 //	}
 //	return s_pConfig;
 //}
+
+unsigned long Config::getForcedResetTime() {
+	return _forcedResetTime;
+}
 
 byte Config::getPinCompressor() {
 	return _pinCompresor;
