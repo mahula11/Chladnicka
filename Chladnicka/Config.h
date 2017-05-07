@@ -53,8 +53,8 @@ private:
 		//* chlad
 		static const unsigned long FRIDGE__LOWER_TEMPERATURE_LIMIT = 3;
 		static const unsigned long FRIDGE__UPPER_TEMPERATURE_LIMIT = 7;
-		static const long FREEZER__LOWER_TEMPERATURE_LIMIT = -24;
-		static const long FREEZER__UPPER_TEMPERATURE_LIMIT = -17;
+		static const long FREEZER__LOWER_TEMPERATURE_LIMIT = -25;
+		static const long FREEZER__UPPER_TEMPERATURE_LIMIT = -18;
 		static const unsigned long FRIDGE__CHECK_TEMPERATURE_INTERVAL = 5000;
 		static const unsigned long FRIDGE__CHECK_VENTILATOR_INTERVAL = 5000;
 		static const unsigned long FRIDGE__PRINT_INTERVAL = 5000;
