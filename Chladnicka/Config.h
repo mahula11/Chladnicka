@@ -51,10 +51,10 @@ private:
 		static const unsigned long VENTILATOR__RUNNIG_TIME_AFTER_OPENED_DOOR = 120000; //* 120000 = 2min, 300000 = 5min
 
 		//* chlad
-		static const unsigned long FRIDGE__LOWER_TEMPERATURE_LIMIT = 3;
-		static const unsigned long FRIDGE__UPPER_TEMPERATURE_LIMIT = 7;
-		static const long FREEZER__LOWER_TEMPERATURE_LIMIT = -25;
-		static const long FREEZER__UPPER_TEMPERATURE_LIMIT = -18;
+		static const unsigned long FRIDGE__LOWER_TEMPERATURE_LIMIT = 0;
+		static const unsigned long FRIDGE__UPPER_TEMPERATURE_LIMIT = 5;
+		static const long		   FREEZER__LOWER_TEMPERATURE_LIMIT = -28;
+		static const long		   FREEZER__UPPER_TEMPERATURE_LIMIT = -18;
 		static const unsigned long FRIDGE__CHECK_TEMPERATURE_INTERVAL = 5000;
 		static const unsigned long FRIDGE__CHECK_VENTILATOR_INTERVAL = 5000;
 		static const unsigned long FRIDGE__PRINT_INTERVAL = 5000;
