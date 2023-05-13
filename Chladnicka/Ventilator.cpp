@@ -3,6 +3,7 @@
 // 
 
 #include "Ventilator.h"
+#include "Ventilator.h"
 
 void CVentilator::startVentilator() {
 	if (_statusVentilator == false && _timeStart == 0) {
